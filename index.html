@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Productivity Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -97,6 +100,103 @@
             border-radius: 10px;
             cursor: pointer;
             font-size: 18px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+        }
+
+        .user-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .auth-btn {
+            padding: 10px 20px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .auth-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        .auth-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            text-align: center;
+        }
+
+        .auth-card {
+            background: var(--bg-card);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: var(--shadow-lg);
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .auth-card h2 {
+            color: var(--primary);
+            margin-bottom: 20px;
+        }
+
+        .auth-card p {
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+        }
+
+        .google-signin-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            padding: 15px;
+            background: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .google-signin-btn:hover {
+            background: #357ae8;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(66, 133, 244, 0.3);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         .dashboard {
@@ -293,18 +393,6 @@
             margin-top: 5px;
         }
 
-        .chart-container {
-            height: 300px;
-            background: var(--bg-card);
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid var(--border);
-        }
-
         .page {
             display: none;
         }
@@ -344,6 +432,32 @@
             margin-bottom: 20px;
         }
 
+        .sync-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 10px;
+        }
+
+        .sync-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--secondary);
+        }
+
+        .sync-dot.syncing {
+            background: var(--warning);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
         @media (max-width: 768px) {
             .dashboard {
                 grid-template-columns: 1fr;
@@ -362,15 +476,67 @@
     <div class="container">
         <header class="header">
             <div class="logo">📊 Productivity Dashboard</div>
-            <nav class="nav">
+            <nav class="nav" id="main-nav" style="display: none;">
                 <button class="nav-btn active" onclick="showPage('dashboard')">Dashboard</button>
                 <button class="nav-btn" onclick="showPage('stats')">Statistics</button>
                 <button class="nav-btn" onclick="showPage('about')">About</button>
                 <button class="dark-toggle" onclick="toggleDarkMode()">🌙</button>
             </nav>
+            <div class="user-info" id="user-info" style="display: none;">
+                <img class="user-avatar" id="user-avatar" src="" alt="User">
+                <span class="user-name" id="user-name"></span>
+                <button class="auth-btn" onclick="signOut()">Sign Out</button>
+            </div>
+            <div id="auth-section">
+                <button class="auth-btn" onclick="signInWithGoogle()" id="signin-btn">
+                    Sign in with Google
+                </button>
+            </div>
         </header>
 
-        <div id="dashboard-page" class="page active">
+        <!-- Auth Page -->
+        <div id="auth-page" class="page active">
+            <div class="auth-container">
+                <div class="auth-card">
+                    <h2>🚀 Welcome to Your Productivity Dashboard</h2>
+                    <p>Sign in with your Google account to sync your data across all devices and never lose your progress!</p>
+                    
+                    <div style="margin-bottom: 30px;">
+                        <div style="display: flex; justify-content: space-around; margin-bottom: 20px;">
+                            <div>
+                                <div style="font-size: 32px;">☁️</div>
+                                <p style="font-size: 12px; margin-top: 5px;">Cloud Sync</p>
+                            </div>
+                            <div>
+                                <div style="font-size: 32px;">🔒</div>
+                                <p style="font-size: 12px; margin-top: 5px;">Secure</p>
+                            </div>
+                            <div>
+                                <div style="font-size: 32px;">📱</div>
+                                <p style="font-size: 12px; margin-top: 5px;">Multi-Device</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button class="google-signin-btn" onclick="signInWithGoogle()" id="main-signin-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        </svg>
+                        Continue with Google
+                    </button>
+                    
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-top: 20px;">
+                        Your data is encrypted and stored securely. We only access basic profile information.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Page -->
+        <div id="dashboard-page" class="page">
             <div class="dashboard">
                 <!-- Daily Goals Tracker -->
                 <div class="card">
@@ -380,6 +546,10 @@
                         <button class="btn" onclick="addTask()">Add</button>
                     </div>
                     <ul class="task-list" id="task-list"></ul>
+                    <div class="sync-indicator">
+                        <div class="sync-dot" id="tasks-sync"></div>
+                        <span>Auto-saved to cloud</span>
+                    </div>
                 </div>
 
                 <!-- Study Timer -->
@@ -416,6 +586,10 @@
                         <button class="btn" onclick="addHabit()">Add</button>
                     </div>
                     <div id="habit-list"></div>
+                    <div class="sync-indicator">
+                        <div class="sync-dot" id="habits-sync"></div>
+                        <span>Auto-saved to cloud</span>
+                    </div>
                 </div>
 
                 <!-- Quote Widget -->
@@ -429,177 +603,8 @@
             </div>
         </div>
 
-        <div id="about-page" class="page">
-            <div class="card" style="max-width: 800px; margin: 0 auto;">
-                <h2 style="text-align: center; color: var(--primary); margin-bottom: 30px; font-size: 28px;">
-                    🚀 About Productivity Dashboard
-                </h2>
-                
-                <div style="text-align: center; margin-bottom: 40px;">
-                    <div style="font-size: 60px; margin-bottom: 20px;">📊✨</div>
-                    <p style="font-size: 18px; color: var(--text-secondary); line-height: 1.8;">
-                        Empowering your journey to peak productivity and personal growth
-                    </p>
-                </div>
-
-                <div style="margin-bottom: 40px;">
-                    <h3 style="color: var(--primary); margin-bottom: 20px; font-size: 22px;">🎯 Our Mission</h3>
-                    <p style="line-height: 1.8; margin-bottom: 20px;">
-                        We believe that productivity isn't just about doing more—it's about doing what matters most. 
-                        Our dashboard is designed to be your personal command center for building better habits, 
-                        achieving your goals, and creating a life you're proud of.
-                    </p>
-                    <p style="line-height: 1.8;">
-                        Whether you're a student preparing for exams, a professional working on projects, or someone 
-                        simply looking to build better daily routines, we're here to support your journey with 
-                        intuitive tools and motivational insights.
-                    </p>
-                </div>
-
-                <div style="margin-bottom: 40px;">
-                    <h3 style="color: var(--primary); margin-bottom: 20px; font-size: 22px;">⚡ Why We Built This</h3>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 25px;">
-                        <div style="padding: 20px; background: var(--bg-secondary); border-radius: 10px; text-align: center;">
-                            <div style="font-size: 32px; margin-bottom: 15px;">🎯</div>
-                            <h4 style="color: var(--primary); margin-bottom: 10px;">Focus</h4>
-                            <p style="font-size: 14px; color: var(--text-secondary);">
-                                Help you concentrate on what truly matters with distraction-free tools
-                            </p>
-                        </div>
-                        <div style="padding: 20px; background: var(--bg-secondary); border-radius: 10px; text-align: center;">
-                            <div style="font-size: 32px; margin-bottom: 15px;">📈</div>
-                            <h4 style="color: var(--primary); margin-bottom: 10px;">Growth</h4>
-                            <p style="font-size: 14px; color: var(--text-secondary);">
-                                Track your progress and celebrate every milestone along your journey
-                            </p>
-                        </div>
-                        <div style="padding: 20px; background: var(--bg-secondary); border-radius: 10px; text-align: center;">
-                            <div style="font-size: 32px; margin-bottom: 15px;">💪</div>
-                            <h4 style="color: var(--primary); margin-bottom: 10px;">Motivation</h4>
-                            <p style="font-size: 14px; color: var(--text-secondary);">
-                                Keep you inspired with achievements, streaks, and uplifting messages
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="margin-bottom: 40px;">
-                    <h3 style="color: var(--primary); margin-bottom: 20px; font-size: 22px;">🛠️ What Makes Us Different</h3>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 25px;">
-                        <div>
-                            <h4 style="color: var(--secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                                <span style="background: var(--secondary); color: white; padding: 4px 8px; border-radius: 15px; font-size: 12px;">✓</span>
-                                All-in-One Solution
-                            </h4>
-                            <p style="font-size: 14px; color: var(--text-secondary);">
-                                Tasks, habits, time tracking, and motivation—everything in one beautiful interface
-                            </p>
-                        </div>
-                        <div>
-                            <h4 style="color: var(--secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                                <span style="background: var(--secondary); color: white; padding: 4px 8px; border-radius: 15px; font-size: 12px;">✓</span>
-                                Science-Based
-                            </h4>
-                            <p style="font-size: 14px; color: var(--text-secondary);">
-                                Built on proven techniques like the Pomodoro method and habit stacking
-                            </p>
-                        </div>
-                        <div>
-                            <h4 style="color: var(--secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                                <span style="background: var(--secondary); color: white; padding: 4px 8px; border-radius: 15px; font-size: 12px;">✓</span>
-                                Beautiful Design
-                            </h4>
-                            <p style="font-size: 14px; color: var(--text-secondary);">
-                                Clean, modern interface that's as pleasant to use as it is powerful
-                            </p>
-                        </div>
-                        <div>
-                            <h4 style="color: var(--secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                                <span style="background: var(--secondary); color: white; padding: 4px 8px; border-radius: 15px; font-size: 12px;">✓</span>
-                                Privacy First
-                            </h4>
-                            <p style="font-size: 14px; color: var(--text-secondary);">
-                                Your data stays with you—we believe in keeping your productivity journey private
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="margin-bottom: 40px;">
-                    <h3 style="color: var(--primary); margin-bottom: 20px; font-size: 22px;">🌟 Our Values</h3>
-                    <div style="background: linear-gradient(135deg, var(--primary), var(--secondary)); padding: 30px; border-radius: 15px; color: white; text-align: center;">
-                        <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 20px;">
-                            <div>
-                                <div style="font-size: 24px; margin-bottom: 10px;">🎯</div>
-                                <strong>Simplicity</strong>
-                                <p style="font-size: 12px; opacity: 0.9; margin-top: 5px;">Clean and intuitive</p>
-                            </div>
-                            <div>
-                                <div style="font-size: 24px; margin-bottom: 10px;">💎</div>
-                                <strong>Quality</strong>
-                                <p style="font-size: 12px; opacity: 0.9; margin-top: 5px;">Built to last</p>
-                            </div>
-                            <div>
-                                <div style="font-size: 24px; margin-bottom: 10px;">🤝</div>
-                                <strong>Support</strong>
-                                <p style="font-size: 12px; opacity: 0.9; margin-top: 5px;">Always here to help</p>
-                            </div>
-                            <div>
-                                <div style="font-size: 24px; margin-bottom: 10px;">🚀</div>
-                                <strong>Innovation</strong>
-                                <p style="font-size: 12px; opacity: 0.9; margin-top: 5px;">Constantly improving</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="text-align: center; padding: 30px; background: var(--bg-secondary); border-radius: 15px;">
-                    <h3 style="color: var(--primary); margin-bottom: 15px;">🎉 Ready to Transform Your Productivity?</h3>
-                    <p style="color: var(--text-secondary); margin-bottom: 20px;">
-                        Join thousands of users who've already made productivity a part of their daily routine
-                    </p>
-                    <button class="btn" onclick="showPage('dashboard')" style="padding: 15px 30px; font-size: 16px;">
-                        Get Started Now 🚀
-                    </button>
-                </div>
-
-                <div style="margin-top: 40px;">
-                    <h3 style="color: var(--primary); margin-bottom: 20px; font-size: 22px; text-align: center;">👨‍💻 Meet the Creator</h3>
-                    <div style="background: var(--bg-secondary); padding: 30px; border-radius: 15px; text-align: center;">
-                        <div style="font-size: 48px; margin-bottom: 15px;">🚀</div>
-                        <h4 style="color: var(--primary); font-size: 20px; margin-bottom: 10px;">Shiven Prasad</h4>
-                        <p style="color: var(--text-secondary); margin-bottom: 20px; line-height: 1.6;">
-                            Passionate developer and productivity enthusiast who believes in the power of 
-                            well-designed tools to transform daily routines and unlock human potential.
-                        </p>
-                        <div style="display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap;">
-                            <span style="color: var(--text-secondary); font-size: 14px;">Get in touch:</span>
-                            <a href="mailto:prasadshiven034@gmail.com" style="
-                                display: inline-flex; 
-                                align-items: center; 
-                                gap: 8px; 
-                                padding: 10px 20px; 
-                                background: var(--primary); 
-                                color: white; 
-                                text-decoration: none; 
-                                border-radius: 25px; 
-                                font-size: 14px;
-                                transition: all 0.3s ease;
-                            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 5px 15px rgba(99, 102, 241, 0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                                📧 prasadshiven034@gmail.com
-                            </a>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid var(--border);">
-                    <p style="color: var(--text-secondary); font-size: 14px;">
-                        Built with ❤️ by Shiven Prasad for productivity enthusiasts everywhere<br>
-                        <span style="font-size: 12px;">Version 1.0 | Made with modern web technologies</span>
-                    </p>
-                </div>
-            </div>
-        </div>
+        <!-- Stats Page -->
+        <div id="stats-page" class="page">
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-number" id="total-study-time">0</div>
@@ -618,18 +623,17 @@
                     <div class="stat-label">Productivity Score</div>
                 </div>
             </div>
-            
-            <div class="chart-container">
-                <div style="text-align: center; color: var(--text-secondary);">
-                    <h3>📈 Study Time This Week</h3>
-                    <div style="margin-top: 20px; font-size: 14px;">
-                        Mon: 2.5h | Tue: 3.2h | Wed: 1.8h | Thu: 4.1h | Fri: 2.7h | Sat: 1.5h | Sun: 3.0h
-                    </div>
-                    <div style="margin-top: 20px; padding: 20px; background: var(--bg-secondary); border-radius: 8px;">
-                        <strong>Weekly Average: 2.7 hours/day</strong><br>
-                        <span style="color: var(--secondary);">↗ 15% improvement from last week</span>
-                    </div>
-                </div>
+        </div>
+
+        <!-- About Page -->
+        <div id="about-page" class="page">
+            <div class="card" style="max-width: 800px; margin: 0 auto;">
+                <h2 style="text-align: center; color: var(--primary); margin-bottom: 30px;">
+                    🚀 About Productivity Dashboard
+                </h2>
+                <p style="text-align: center; margin-bottom: 30px;">
+                    Your personal productivity companion with cloud sync powered by Google authentication.
+                </p>
             </div>
         </div>
     </div>
@@ -645,8 +649,25 @@
     </div>
 
     <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCpbuuu6WJ-G21KL0JzaJErmTAxDoQJmm8",
+            authDomain: "my-productivity-dashboar-c946c.firebaseapp.com",
+            projectId: "my-productivity-dashboar-c946c",
+            storageBucket: "my-productivity-dashboar-c946c.firebasestorage.app",
+            messagingSenderId: "985259506206",
+            appId: "1:985259506206:web:24732600ff16fe2bbd4c0f",
+            measurementId: "G-G6DWPBH56Z"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
         // Application state
         let appState = {
+            user: null,
             tasks: [],
             habits: [],
             timer: {
@@ -663,7 +684,8 @@
                 bestStreak: 0,
                 pomodoroSessions: 0
             },
-            darkMode: false
+            darkMode: false,
+            syncing: false
         };
 
         // Motivational quotes
@@ -672,18 +694,141 @@
             { text: "Success is not final, failure is not fatal: it is the courage to continue that counts.", author: "Winston Churchill" },
             { text: "The way to get started is to quit talking and begin doing.", author: "Walt Disney" },
             { text: "Don't watch the clock; do what it does. Keep going.", author: "Sam Levenson" },
-            { text: "The secret of getting ahead is getting started.", author: "Mark Twain" },
-            { text: "It is during our darkest moments that we must focus to see the light.", author: "Aristotle" },
-            { text: "Believe you can and you're halfway there.", author: "Theodore Roosevelt" },
-            { text: "The only impossible journey is the one you never begin.", author: "Tony Robbins" }
+            { text: "The secret of getting ahead is getting started.", author: "Mark Twain" }
         ];
 
-        // Initialize app
-        function init() {
-            loadData();
-            updateUI();
-            displayRandomQuote();
-            updateStats();
+        // Authentication
+        function signInWithGoogle() {
+            const btn = document.getElementById('signin-btn') || document.getElementById('main-signin-btn');
+            btn.innerHTML = '<div class="loading-spinner"></div> Signing in...';
+            btn.disabled = true;
+
+            const provider = new firebase.auth.GoogleAuthProvider();
+            provider.addScope('profile');
+            provider.addScope('email');
+
+            auth.signInWithPopup(provider)
+                .then((result) => {
+                    console.log('Sign-in successful');
+                })
+                .catch((error) => {
+                    console.error('Sign-in error:', error);
+                    btn.innerHTML = 'Continue with Google';
+                    btn.disabled = false;
+                });
+        }
+
+        function signOut() {
+            auth.signOut().then(() => {
+                console.log('Sign-out successful');
+                showAuthPage();
+            }).catch((error) => {
+                console.error('Sign-out error:', error);
+            });
+        }
+
+        // Auth state observer
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                appState.user = user;
+                showDashboard();
+                loadUserData();
+            } else {
+                appState.user = null;
+                showAuthPage();
+            }
+        });
+
+        function showAuthPage() {
+            document.getElementById('auth-page').classList.add('active');
+            document.getElementById('dashboard-page').classList.remove('active');
+            document.getElementById('stats-page').classList.remove('active');
+            document.getElementById('about-page').classList.remove('active');
+            document.getElementById('main-nav').style.display = 'none';
+            document.getElementById('user-info').style.display = 'none';
+            document.getElementById('auth-section').style.display = 'block';
+        }
+
+        function showDashboard() {
+            document.getElementById('auth-page').classList.remove('active');
+            document.getElementById('dashboard-page').classList.add('active');
+            document.getElementById('main-nav').style.display = 'flex';
+            document.getElementById('user-info').style.display = 'flex';
+            document.getElementById('auth-section').style.display = 'none';
+            
+            // Update user info
+            document.getElementById('user-name').textContent = appState.user.displayName;
+            document.getElementById('user-avatar').src = appState.user.photoURL;
+        }
+
+        // Data persistence with Firestore
+        async function saveUserData() {
+            if (!appState.user || appState.syncing) return;
+            
+            appState.syncing = true;
+            updateSyncIndicators(true);
+
+            try {
+                const userDoc = db.collection('users').doc(appState.user.uid);
+                await userDoc.set({
+                    tasks: appState.tasks,
+                    habits: appState.habits,
+                    stats: appState.stats,
+                    darkMode: appState.darkMode,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                
+                console.log('Data saved successfully');
+            } catch (error) {
+                console.error('Error saving data:', error);
+            } finally {
+                appState.syncing = false;
+                updateSyncIndicators(false);
+            }
+        }
+
+        async function loadUserData() {
+            if (!appState.user) return;
+
+            try {
+                const userDoc = await db.collection('users').doc(appState.user.uid).get();
+                if (userDoc.exists) {
+                    const data = userDoc.data();
+                    appState.tasks = data.tasks || [];
+                    appState.habits = data.habits || [];
+                    appState.stats = data.stats || appState.stats;
+                    appState.darkMode = data.darkMode || false;
+                    
+                    // Apply loaded settings
+                    if (appState.darkMode) {
+                        document.body.setAttribute('data-theme', 'dark');
+                        document.querySelector('.dark-toggle').textContent = '☀️';
+                    }
+                    
+                    updateUI();
+                    console.log('Data loaded successfully');
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        }
+
+        function updateSyncIndicators(syncing) {
+            const indicators = document.querySelectorAll('.sync-dot');
+            indicators.forEach(dot => {
+                if (syncing) {
+                    dot.classList.add('syncing');
+                } else {
+                    dot.classList.remove('syncing');
+                }
+            });
+        }
+
+        // Debounced save function
+        let saveTimeout;
+        function debouncedSave() {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(saveUserData, 1000);
         }
 
         // Navigation
@@ -700,7 +845,7 @@
             appState.darkMode = !appState.darkMode;
             document.body.setAttribute('data-theme', appState.darkMode ? 'dark' : 'light');
             document.querySelector('.dark-toggle').textContent = appState.darkMode ? '☀️' : '🌙';
-            saveData();
+            debouncedSave();
         }
 
         // Task management
@@ -713,12 +858,12 @@
                     id: Date.now(),
                     text: taskText,
                     completed: false,
-                    createdAt: new Date()
+                    createdAt: new Date().toISOString()
                 };
                 appState.tasks.push(task);
                 input.value = '';
                 updateTaskList();
-                saveData();
+                debouncedSave();
             }
         }
 
@@ -740,14 +885,14 @@
                 }
                 updateTaskList();
                 updateStats();
-                saveData();
+                debouncedSave();
             }
         }
 
         function deleteTask(taskId) {
             appState.tasks = appState.tasks.filter(t => t.id !== taskId);
             updateTaskList();
-            saveData();
+            debouncedSave();
         }
 
         function updateTaskList() {
@@ -830,7 +975,7 @@
             }
             
             updateStats();
-            saveData();
+            debouncedSave();
         }
 
         // Habit management
@@ -844,12 +989,12 @@
                     text: habitText,
                     streak: 0,
                     lastCompleted: null,
-                    createdAt: new Date()
+                    createdAt: new Date().toISOString()
                 };
                 appState.habits.push(habit);
                 input.value = '';
                 updateHabitList();
-                saveData();
+                debouncedSave();
             }
         }
 
@@ -867,7 +1012,7 @@
                 
                 if (lastCompleted !== today) {
                     habit.streak++;
-                    habit.lastCompleted = new Date();
+                    habit.lastCompleted = new Date().toISOString();
                     
                     if (habit.streak > appState.stats.bestStreak) {
                         appState.stats.bestStreak = habit.streak;
@@ -876,7 +1021,7 @@
                     showCelebration(`Habit completed! ${habit.streak} day streak! 🔥`);
                     updateHabitList();
                     updateStats();
-                    saveData();
+                    debouncedSave();
                 }
             }
         }
@@ -884,7 +1029,7 @@
         function deleteHabit(habitId) {
             appState.habits = appState.habits.filter(h => h.id !== habitId);
             updateHabitList();
-            saveData();
+            debouncedSave();
         }
 
         function updateHabitList() {
@@ -947,26 +1092,48 @@
             document.getElementById('celebration-modal').classList.remove('active');
         }
 
-        // Data persistence
-        function saveData() {
-            // In a real app, this would save to a backend or localStorage
-            // For this demo, we'll just keep data in memory
-        }
-
-        function loadData() {
-            // In a real app, this would load from a backend or localStorage
-            // For this demo, we'll start with empty state
-        }
-
         function updateUI() {
             updateTaskList();
             updateHabitList();
             updateTimerDisplay();
             updateStats();
+            displayRandomQuote();
         }
 
         // Initialize app when page loads
-        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener('DOMContentLoaded', () => {
+            displayRandomQuote();
+            updateTimerDisplay();
+        });
+
+        // Setup real-time sync
+        function setupRealtimeSync() {
+            if (!appState.user) return;
+            
+            const userDoc = db.collection('users').doc(appState.user.uid);
+            userDoc.onSnapshot((doc) => {
+                if (doc.exists && !appState.syncing) {
+                    const data = doc.data();
+                    const serverTimestamp = data.lastUpdated;
+                    
+                    // Only update if server data is newer
+                    if (serverTimestamp && serverTimestamp.toDate() > new Date(Date.now() - 5000)) {
+                        appState.tasks = data.tasks || [];
+                        appState.habits = data.habits || [];
+                        appState.stats = data.stats || appState.stats;
+                        updateUI();
+                        console.log('Real-time data update received');
+                    }
+                }
+            });
+        }
+
+        // Set up real-time sync when user is authenticated
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                setupRealtimeSync();
+            }
+        });
     </script>
 </body>
 </html>
