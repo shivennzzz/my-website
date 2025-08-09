@@ -1,122 +1,4 @@
-function updateUI() {
-            updateTaskList();
-            updateTaskProgress();
-            updateHabitList();
-            updateTimerDisplay();
-            updatePomodoroDotsDisplay();
-            updateStats();
-            updateNotesDisplay();
-            updateAchievementDisplay();
-            updateMoodDisplay();
-            resetDailyCounters();
-        }
-
-        // Notes functionality
-        function saveNote() {
-            const input = document.getElementById('notes-input');
-            const noteText = input.value.trim();
-            
-            if (noteText) {
-                const note = {
-                    id: Date.now(),
-                    text: noteText,
-                    createdAt: new Date()
-                };
-                appState.notes.unshift(note); // Add to beginning
-                input.value = '';
-                updateNotesDisplay();
-                saveData();
-                showCelebration("Note saved! 📝");
-            }
-        }
-
-        function deleteNote(noteId) {
-            appState.notes = appState.notes.filter(n => n.id !== noteId);
-            updateNotesDisplay();
-            saveData();
-        }
-
-        function clearNotes() {
-            if (appState.notes.length > 0 && confirm('Are you sure you want to clear all notes?')) {
-                appState.notes = [];
-                updateNotesDisplay();
-                saveData();
-            }
-        }
-
-        function updateNotesDisplay() {
-            const notesContainer = document.getElementById('saved-notes');
-            notesContainer.innerHTML = '';
-            
-            if (appState.notes.length === 0) {
-                notesContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary); font-size: 14px; padding: 20px;">No notes yet. Add your first note above! ✏️</div>';
-                return;
-            }
-            
-            appState.notes.slice(0, 3).forEach(note => { // Show only last 3 notes
-                const noteDiv = document.createElement('div');
-                noteDiv.style.cssText = `
-                    background: var(--bg-secondary);
-                    padding: 10px;
-                    border-radius: 8px;
-                    margin-bottom: 8px;
-                    font-size: 14px;
-                    position: relative;
-                `;
-                
-                const noteDate = new Date(note.createdAt).toLocaleDateString();
-                noteDiv.innerHTML = `
-                    <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 5px;">${noteDate}</div>
-                    <div style="margin-bottom: 10px;">${note.text}</div>
-                    <button onclick="deleteNote(${note.id})" style="
-                        position: absolute;
-                        top: 5px;
-                        right: 5px;
-                        background: var(--danger);
-                        color: white;
-                        border: none;
-                        border-radius: 4px;
-                        padding: 2px 6px;
-                        font-size: 10px;
-                        cursor: pointer;
-                    ">×</button>
-                `;
-                notesContainer.appendChild(noteDiv);
-            });
-            
-            if (appState.notes.length > 3) {
-                const moreDiv = document.createElement('div');
-                moreDiv.style.cssText = 'text-align: center; color: var(--text-secondary); font-size: 12px; padding: 10px;';
-                moreDiv.textContent = `+${appState.notes.length - 3} more notes`;
-                notesContainer.appendChild(moreDiv);
-            }
-        }
-
-        // Mood functionality
-        function setMood(mood) {
-            appState.currentMood = mood;
-            updateMoodDisplay();
-            saveData();
-            showCelebration(`Mood set to ${mood}! Have a great day! 😊`);
-        }
-
-        function updateMoodDisplay() {
-            const moodDisplay = document.getElementById('current-mood');
-            if (appState.currentMood) {
-                moodDisplay.textContent = `Today's mood: ${appState.currentMood}`;
-            } else {
-                moodDisplay.textContent = 'Set your mood for today!';
-            }
-        }
-
-        // Achievement system
-        function checkAchievements() {
-            const achievements = [
-                {
-                    key: 'firstTask',
-                    condition: () => appState.stats.completedTasks >= 1,
-                    badge: '🎯',
-                    title: 'First Steps<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -253,14 +135,18 @@ function updateUI() {
             margin-bottom: 20px;
         }
 
-        .task-input input {
-            flex: 1;
+        .task-input input, .task-input select, .task-input textarea {
             padding: 12px;
             border: 2px solid var(--border);
             border-radius: 8px;
             background: var(--bg-primary);
             color: var(--text-primary);
             font-size: 14px;
+            font-family: inherit;
+        }
+
+        .task-input input {
+            flex: 1;
         }
 
         .btn {
@@ -462,6 +348,31 @@ function updateUI() {
             margin-bottom: 20px;
         }
 
+        .journal-entry {
+            background: var(--bg-secondary);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .journal-entry-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .journal-entry-date {
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .journal-entry-content {
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+
         @media (max-width: 768px) {
             .dashboard {
                 grid-template-columns: 1fr;
@@ -495,7 +406,7 @@ function updateUI() {
                     <h3>🎯 Daily Goals</h3>
                     <div class="task-input">
                         <input type="text" id="task-input" placeholder="Add a new goal..." onkeypress="handleTaskInput(event)">
-                        <select id="task-priority" style="padding: 12px; border: 2px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text-primary); margin-right: 10px;">
+                        <select id="task-priority">
                             <option value="low">🟢 Low</option>
                             <option value="medium">🟡 Medium</option>
                             <option value="high">🔴 High</option>
@@ -555,24 +466,12 @@ function updateUI() {
                     <div id="saved-notes" style="max-height: 200px; overflow-y: auto;"></div>
                 </div>
 
-                <!-- Weather Widget -->
+                <!-- Quote Widget -->
                 <div class="card">
-                    <h3>🌤️ Weather & Mood</h3>
-                    <div id="weather-content" style="text-align: center;">
-                        <div style="font-size: 48px; margin: 10px 0;" id="weather-icon">☀️</div>
-                        <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px;" id="weather-temp">22°C</div>
-                        <div style="color: var(--text-secondary); margin-bottom: 20px;" id="weather-desc">Perfect for productivity!</div>
-                        <div style="margin-top: 20px;">
-                            <div style="font-size: 14px; margin-bottom: 10px; color: var(--text-secondary);">How are you feeling today?</div>
-                            <div style="display: flex; justify-content: space-around; gap: 5px;">
-                                <button onclick="setMood('😄')" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 5px; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">😄</button>
-                                <button onclick="setMood('😊')" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 5px; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">😊</button>
-                                <button onclick="setMood('😐')" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 5px; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">😐</button>
-                                <button onclick="setMood('😔')" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 5px; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">😔</button>
-                                <button onclick="setMood('💪')" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 5px; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">💪</button>
-                            </div>
-                            <div id="current-mood" style="margin-top: 10px; font-size: 14px; color: var(--text-secondary);"></div>
-                        </div>
+                    <div class="quote-widget" id="quote-widget">
+                        <div class="quote-text" id="quote-text">"The future depends on what you do today."</div>
+                        <div class="quote-author" id="quote-author">- Mahatma Gandhi</div>
+                        <button class="btn" onclick="newQuote()" style="margin-top: 15px; background: rgba(255,255,255,0.2);">New Quote</button>
                     </div>
                 </div>
 
@@ -602,13 +501,20 @@ function updateUI() {
                     </div>
                 </div>
 
-                <!-- Quote Widget -->
+                <!-- Daily Journal -->
                 <div class="card">
-                    <div class="quote-widget" id="quote-widget">
-                        <div class="quote-text" id="quote-text">"The future depends on what you do today."</div>
-                        <div class="quote-author" id="quote-author">- Mahatma Gandhi</div>
-                        <button class="btn" onclick="newQuote()" style="margin-top: 15px; background: rgba(255,255,255,0.2);">New Quote</button>
+                    <h3>📖 Daily Journal</h3>
+                    <div style="margin-bottom: 15px;">
+                        <textarea id="journal-input" placeholder="How was your day? What did you learn? What are you grateful for?" 
+                                  style="width: 100%; min-height: 120px; padding: 12px; border: 2px solid var(--border); 
+                                         border-radius: 8px; background: var(--bg-primary); color: var(--text-primary); 
+                                         resize: vertical; font-family: inherit;"></textarea>
                     </div>
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button class="btn" onclick="saveJournalEntry()" style="flex: 1;">📖 Save Entry</button>
+                        <button class="btn btn-secondary" onclick="clearJournal()" style="flex: 1;">🗑️ Clear All</button>
+                    </div>
+                    <div id="journal-entries" style="max-height: 250px; overflow-y: auto;"></div>
                 </div>
 
                 <!-- Focus Music Player -->
@@ -695,154 +601,16 @@ function updateUI() {
                         Our dashboard is designed to be your personal command center for building better habits, 
                         achieving your goals, and creating a life you're proud of.
                     </p>
-                    <p style="line-height: 1.8;">
-                        Whether you're a student preparing for exams, a professional working on projects, or someone 
-                        simply looking to build better daily routines, we're here to support your journey with 
-                        intuitive tools and motivational insights.
-                    </p>
-                </div>
-
-                <div style="margin-bottom: 40px;">
-                    <h3 style="color: var(--primary); margin-bottom: 20px; font-size: 22px;">⚡ Why We Built This</h3>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 25px;">
-                        <div style="padding: 20px; background: var(--bg-secondary); border-radius: 10px; text-align: center;">
-                            <div style="font-size: 32px; margin-bottom: 15px;">🎯</div>
-                            <h4 style="color: var(--primary); margin-bottom: 10px;">Focus</h4>
-                            <p style="font-size: 14px; color: var(--text-secondary);">
-                                Help you concentrate on what truly matters with distraction-free tools
-                            </p>
-                        </div>
-                        <div style="padding: 20px; background: var(--bg-secondary); border-radius: 10px; text-align: center;">
-                            <div style="font-size: 32px; margin-bottom: 15px;">📈</div>
-                            <h4 style="color: var(--primary); margin-bottom: 10px;">Growth</h4>
-                            <p style="font-size: 14px; color: var(--text-secondary);">
-                                Track your progress and celebrate every milestone along your journey
-                            </p>
-                        </div>
-                        <div style="padding: 20px; background: var(--bg-secondary); border-radius: 10px; text-align: center;">
-                            <div style="font-size: 32px; margin-bottom: 15px;">💪</div>
-                            <h4 style="color: var(--primary); margin-bottom: 10px;">Motivation</h4>
-                            <p style="font-size: 14px; color: var(--text-secondary);">
-                                Keep you inspired with achievements, streaks, and uplifting messages
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="margin-bottom: 40px;">
-                    <h3 style="color: var(--primary); margin-bottom: 20px; font-size: 22px;">🛠️ What Makes Us Different</h3>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 25px;">
-                        <div>
-                            <h4 style="color: var(--secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                                <span style="background: var(--secondary); color: white; padding: 4px 8px; border-radius: 15px; font-size: 12px;">✓</span>
-                                All-in-One Solution
-                            </h4>
-                            <p style="font-size: 14px; color: var(--text-secondary);">
-                                Tasks, habits, time tracking, and motivation—everything in one beautiful interface
-                            </p>
-                        </div>
-                        <div>
-                            <h4 style="color: var(--secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                                <span style="background: var(--secondary); color: white; padding: 4px 8px; border-radius: 15px; font-size: 12px;">✓</span>
-                                Science-Based
-                            </h4>
-                            <p style="font-size: 14px; color: var(--text-secondary);">
-                                Built on proven techniques like the Pomodoro method and habit stacking
-                            </p>
-                        </div>
-                        <div>
-                            <h4 style="color: var(--secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                                <span style="background: var(--secondary); color: white; padding: 4px 8px; border-radius: 15px; font-size: 12px;">✓</span>
-                                Beautiful Design
-                            </h4>
-                            <p style="font-size: 14px; color: var(--text-secondary);">
-                                Clean, modern interface that's as pleasant to use as it is powerful
-                            </p>
-                        </div>
-                        <div>
-                            <h4 style="color: var(--secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                                <span style="background: var(--secondary); color: white; padding: 4px 8px; border-radius: 15px; font-size: 12px;">✓</span>
-                                Privacy First
-                            </h4>
-                            <p style="font-size: 14px; color: var(--text-secondary);">
-                                Your data stays with you—we believe in keeping your productivity journey private
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="margin-bottom: 40px;">
-                    <h3 style="color: var(--primary); margin-bottom: 20px; font-size: 22px;">🌟 Our Values</h3>
-                    <div style="background: linear-gradient(135deg, var(--primary), var(--secondary)); padding: 30px; border-radius: 15px; color: white; text-align: center;">
-                        <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 20px;">
-                            <div>
-                                <div style="font-size: 24px; margin-bottom: 10px;">🎯</div>
-                                <strong>Simplicity</strong>
-                                <p style="font-size: 12px; opacity: 0.9; margin-top: 5px;">Clean and intuitive</p>
-                            </div>
-                            <div>
-                                <div style="font-size: 24px; margin-bottom: 10px;">💎</div>
-                                <strong>Quality</strong>
-                                <p style="font-size: 12px; opacity: 0.9; margin-top: 5px;">Built to last</p>
-                            </div>
-                            <div>
-                                <div style="font-size: 24px; margin-bottom: 10px;">🤝</div>
-                                <strong>Support</strong>
-                                <p style="font-size: 12px; opacity: 0.9; margin-top: 5px;">Always here to help</p>
-                            </div>
-                            <div>
-                                <div style="font-size: 24px; margin-bottom: 10px;">🚀</div>
-                                <strong>Innovation</strong>
-                                <p style="font-size: 12px; opacity: 0.9; margin-top: 5px;">Constantly improving</p>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <div style="text-align: center; padding: 30px; background: var(--bg-secondary); border-radius: 15px;">
                     <h3 style="color: var(--primary); margin-bottom: 15px;">🎉 Ready to Transform Your Productivity?</h3>
                     <p style="color: var(--text-secondary); margin-bottom: 20px;">
-                        Join thousands of users who've already made productivity a part of their daily routine
+                        Start tracking your goals, habits, and daily reflections today!
                     </p>
                     <button class="btn" onclick="showPage('dashboard')" style="padding: 15px 30px; font-size: 16px;">
                         Get Started Now 🚀
                     </button>
-                </div>
-
-                <div style="margin-top: 40px;">
-                    <h3 style="color: var(--primary); margin-bottom: 20px; font-size: 22px; text-align: center;">👨‍💻 Meet the Creator</h3>
-                    <div style="background: var(--bg-secondary); padding: 30px; border-radius: 15px; text-align: center;">
-                        <div style="font-size: 48px; margin-bottom: 15px;">🚀</div>
-                        <h4 style="color: var(--primary); font-size: 20px; margin-bottom: 10px;">Shiven Prasad</h4>
-                        <p style="color: var(--text-secondary); margin-bottom: 20px; line-height: 1.6;">
-                            Passionate developer and productivity enthusiast who believes in the power of 
-                            well-designed tools to transform daily routines and unlock human potential.
-                        </p>
-                        <div style="display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap;">
-                            <span style="color: var(--text-secondary); font-size: 14px;">Get in touch:</span>
-                            <a href="mailto:prasadshiven034@gmail.com" style="
-                                display: inline-flex; 
-                                align-items: center; 
-                                gap: 8px; 
-                                padding: 10px 20px; 
-                                background: var(--primary); 
-                                color: white; 
-                                text-decoration: none; 
-                                border-radius: 25px; 
-                                font-size: 14px;
-                                transition: all 0.3s ease;
-                            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 5px 15px rgba(99, 102, 241, 0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                                📧 prasadshiven034@gmail.com
-                            </a>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid var(--border);">
-                    <p style="color: var(--text-secondary); font-size: 14px;">
-                        Built with ❤️ by Shiven Prasad for productivity enthusiasts everywhere<br>
-                        <span style="font-size: 12px;">Version 1.0 | Made with modern web technologies</span>
-                    </p>
                 </div>
             </div>
         </div>
@@ -881,7 +649,7 @@ function updateUI() {
             },
             darkMode: false,
             notes: [],
-            currentMood: null,
+            journalEntries: [],
             achievements: {
                 firstTask: false,
                 fivePomodoros: false,
@@ -905,25 +673,6 @@ function updateUI() {
             { text: "Believe you can and you're halfway there.", author: "Theodore Roosevelt" },
             { text: "The only impossible journey is the one you never begin.", author: "Tony Robbins" }
         ];
-
-        // Utility functions for localStorage
-        function saveToLocalStorage(key, data) {
-            try {
-                localStorage.setItem(key, JSON.stringify(data));
-            } catch (error) {
-                console.error('Error saving to localStorage:', error);
-            }
-        }
-
-        function loadFromLocalStorage(key) {
-            try {
-                const data = localStorage.getItem(key);
-                return data ? JSON.parse(data) : null;
-            } catch (error) {
-                console.error('Error loading from localStorage:', error);
-                return null;
-            }
-        }
 
         // Get date string for tracking daily data
         function getDateString(date = new Date()) {
@@ -967,12 +716,11 @@ function updateUI() {
                 const bar = document.createElement('div');
                 bar.style.cssText = `
                     width: 30px;
-                    height: ${barHeight}%;
+                    height: ${Math.max(barHeight, 5)}%;
                     background: linear-gradient(to top, var(--primary), var(--secondary));
                     border-radius: 4px 4px 0 0;
                     margin: 0 5px;
                     position: relative;
-                    min-height: 5px;
                 `;
                 
                 const barContainer = document.createElement('div');
@@ -1242,6 +990,163 @@ function updateUI() {
             }
         }
 
+        // Notes functionality
+        function saveNote() {
+            const input = document.getElementById('notes-input');
+            const noteText = input.value.trim();
+            
+            if (noteText) {
+                const note = {
+                    id: Date.now(),
+                    text: noteText,
+                    createdAt: new Date()
+                };
+                appState.notes.unshift(note); // Add to beginning
+                input.value = '';
+                updateNotesDisplay();
+                saveData();
+                showCelebration("Note saved! 📝");
+            }
+        }
+
+        function deleteNote(noteId) {
+            appState.notes = appState.notes.filter(n => n.id !== noteId);
+            updateNotesDisplay();
+            saveData();
+        }
+
+        function clearNotes() {
+            if (appState.notes.length > 0 && confirm('Are you sure you want to clear all notes?')) {
+                appState.notes = [];
+                updateNotesDisplay();
+                saveData();
+            }
+        }
+
+        function updateNotesDisplay() {
+            const notesContainer = document.getElementById('saved-notes');
+            notesContainer.innerHTML = '';
+            
+            if (appState.notes.length === 0) {
+                notesContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary); font-size: 14px; padding: 20px;">No notes yet. Add your first note above! ✏️</div>';
+                return;
+            }
+            
+            appState.notes.slice(0, 3).forEach(note => { // Show only last 3 notes
+                const noteDiv = document.createElement('div');
+                noteDiv.style.cssText = `
+                    background: var(--bg-secondary);
+                    padding: 10px;
+                    border-radius: 8px;
+                    margin-bottom: 8px;
+                    font-size: 14px;
+                    position: relative;
+                `;
+                
+                const noteDate = new Date(note.createdAt).toLocaleDateString();
+                noteDiv.innerHTML = `
+                    <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 5px;">${noteDate}</div>
+                    <div style="margin-bottom: 10px;">${note.text}</div>
+                    <button onclick="deleteNote(${note.id})" style="
+                        position: absolute;
+                        top: 5px;
+                        right: 5px;
+                        background: var(--danger);
+                        color: white;
+                        border: none;
+                        border-radius: 4px;
+                        padding: 2px 6px;
+                        font-size: 10px;
+                        cursor: pointer;
+                    ">×</button>
+                `;
+                notesContainer.appendChild(noteDiv);
+            });
+            
+            if (appState.notes.length > 3) {
+                const moreDiv = document.createElement('div');
+                moreDiv.style.cssText = 'text-align: center; color: var(--text-secondary); font-size: 12px; padding: 10px;';
+                moreDiv.textContent = `+${appState.notes.length - 3} more notes`;
+                notesContainer.appendChild(moreDiv);
+            }
+        }
+
+        // Journal functionality
+        function saveJournalEntry() {
+            const input = document.getElementById('journal-input');
+            const entryText = input.value.trim();
+            
+            if (entryText) {
+                const entry = {
+                    id: Date.now(),
+                    text: entryText,
+                    createdAt: new Date()
+                };
+                appState.journalEntries.unshift(entry); // Add to beginning
+                input.value = '';
+                updateJournalDisplay();
+                saveData();
+                showCelebration("Journal entry saved! 📖 Great reflection!");
+            }
+        }
+
+        function deleteJournalEntry(entryId) {
+            appState.journalEntries = appState.journalEntries.filter(e => e.id !== entryId);
+            updateJournalDisplay();
+            saveData();
+        }
+
+        function clearJournal() {
+            if (appState.journalEntries.length > 0 && confirm('Are you sure you want to clear all journal entries?')) {
+                appState.journalEntries = [];
+                updateJournalDisplay();
+                saveData();
+            }
+        }
+
+        function updateJournalDisplay() {
+            const journalContainer = document.getElementById('journal-entries');
+            journalContainer.innerHTML = '';
+            
+            if (appState.journalEntries.length === 0) {
+                journalContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary); font-size: 14px; padding: 20px;">No journal entries yet. Start reflecting on your day! 📖</div>';
+                return;
+            }
+            
+            appState.journalEntries.slice(0, 3).forEach(entry => { // Show only last 3 entries
+                const entryDiv = document.createElement('div');
+                entryDiv.className = 'journal-entry';
+                
+                const entryDate = new Date(entry.createdAt);
+                const dateString = entryDate.toLocaleDateString();
+                const timeString = entryDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                entryDiv.innerHTML = `
+                    <div class="journal-entry-header">
+                        <div class="journal-entry-date">${dateString} at ${timeString}</div>
+                        <button onclick="deleteJournalEntry(${entry.id})" style="
+                            background: var(--danger);
+                            color: white;
+                            border: none;
+                            border-radius: 4px;
+                            padding: 2px 6px;
+                            font-size: 10px;
+                            cursor: pointer;
+                        ">×</button>
+                    </div>
+                    <div class="journal-entry-content">${entry.text}</div>
+                `;
+                journalContainer.appendChild(entryDiv);
+            });
+            
+            if (appState.journalEntries.length > 3) {
+                const moreDiv = document.createElement('div');
+                moreDiv.style.cssText = 'text-align: center; color: var(--text-secondary); font-size: 12px; padding: 10px;';
+                moreDiv.textContent = `+${appState.journalEntries.length - 3} more entries`;
+                journalContainer.appendChild(moreDiv);
+            }
+        }
+
         // Habit management
         function addHabit() {
             const input = document.getElementById('habit-input');
@@ -1344,58 +1249,6 @@ function updateUI() {
             const totalToday = appState.tasks.length;
             const productivityScore = totalToday > 0 ? Math.round((completedToday / totalToday) * 100) : 0;
             document.getElementById('productivity-score').textContent = productivityScore + '%';
-        }
-
-        // Celebration modal
-        function showCelebration(message) {
-            document.getElementById('celebration-message').textContent = message;
-            document.getElementById('celebration-modal').classList.add('active');
-        }
-
-        function closeCelebration() {
-            document.getElementById('celebration-modal').classList.remove('active');
-        }
-
-        // Data persistence
-        function saveData() {
-            saveToLocalStorage('productivityDashboard', appState);
-        }
-
-        function loadData() {
-            const savedData = loadFromLocalStorage('productivityDashboard');
-            if (savedData) {
-                appState = { ...appState, ...savedData };
-                
-                // Convert date strings back to Date objects where necessary
-                appState.tasks = appState.tasks.map(task => ({
-                    ...task,
-                    createdAt: new Date(task.createdAt)
-                }));
-                
-                appState.habits = appState.habits.map(habit => ({
-                    ...habit,
-                    createdAt: new Date(habit.createdAt),
-                    lastCompleted: habit.lastCompleted ? new Date(habit.lastCompleted) : null
-                }));
-
-                appState.notes = (appState.notes || []).map(note => ({
-                    ...note,
-                    createdAt: new Date(note.createdAt)
-                }));
-                
-                // Ensure all required properties exist
-                if (!appState.stats.dailyStudyTimes) appState.stats.dailyStudyTimes = {};
-                if (!appState.stats.todaysPomodoroSessions) appState.stats.todaysPomodoroSessions = 0;
-                if (!appState.notes) appState.notes = [];
-                if (!appState.achievements) appState.achievements = { firstTask: false, fivePomodoros: false, weekStreak: false, perfectDay: false };
-                if (!appState.focusSound) appState.focusSound = { current: null, audio: null };
-                
-                // Apply dark mode if saved
-                if (appState.darkMode) {
-                    document.body.setAttribute('data-theme', 'dark');
-                    document.querySelector('.dark-toggle').textContent = '☀️';
-                }
-            }
         }
 
         // Achievement system
@@ -1514,27 +1367,33 @@ function updateUI() {
             appState.focusSound.current = soundType;
             
             // Create a simple oscillator for demo purposes (since we can't load actual sound files)
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                // Different frequencies for different "sounds"
+                const frequencies = { rain: 200, forest: 400, ocean: 150, coffee: 300 };
+                oscillator.frequency.setValueAtTime(frequencies[soundType], audioContext.currentTime);
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.start();
+                
+                // Store reference for stopping
+                appState.focusSound.audio = { stop: () => { oscillator.stop(); audioContext.close(); } };
+                
+                document.getElementById('current-sound').textContent = `Playing: ${sounds[soundType].name}`;
+                showCelebration(`🎵 Now playing ${sounds[soundType].description}`);
+            } catch (error) {
+                document.getElementById('current-sound').textContent = `Simulating: ${sounds[soundType].name}`;
+                showCelebration(`🎵 Focus sound activated: ${sounds[soundType].description}`);
+            }
             
-            // Different frequencies for different "sounds"
-            const frequencies = { rain: 200, forest: 400, ocean: 150, coffee: 300 };
-            oscillator.frequency.setValueAtTime(frequencies[soundType], audioContext.currentTime);
-            oscillator.type = 'sine';
-            
-            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            
-            oscillator.start();
-            
-            // Store reference for stopping
-            appState.focusSound.audio = { stop: () => { oscillator.stop(); audioContext.close(); } };
-            
-            document.getElementById('current-sound').textContent = `Playing: ${sounds[soundType].name}`;
-            showCelebration(`🎵 Now playing ${sounds[soundType].description}`);
             saveData();
         }
 
@@ -1542,39 +1401,64 @@ function updateUI() {
             if (appState.focusSound.audio) {
                 appState.focusSound.audio.stop();
                 appState.focusSound.audio = null;
-                appState.focusSound.current = null;
-                document.getElementById('current-sound').textContent = 'No sound playing';
-                showCelebration('🔇 Focus sound stopped');
-                saveData();
             }
+            appState.focusSound.current = null;
+            document.getElementById('current-sound').textContent = 'No sound playing';
+            showCelebration('🔇 Focus sound stopped');
+            saveData();
+        }
+
+        // Celebration modal
+        function showCelebration(message) {
+            document.getElementById('celebration-message').textContent = message;
+            document.getElementById('celebration-modal').classList.add('active');
+        }
+
+        function closeCelebration() {
+            document.getElementById('celebration-modal').classList.remove('active');
+        }
+
+        // Data persistence using in-memory storage
+        function saveData() {
+            // In a real application, this would save to localStorage
+            // For this artifact, we'll just keep data in memory during the session
+            console.log('Data saved to memory');
+        }
+
+        function loadData() {
+            // In a real application, this would load from localStorage
+            // For this artifact, data is initialized in the appState object
+            console.log('Data loaded from memory');
+            
+            // Ensure all required properties exist
+            if (!appState.stats.dailyStudyTimes) appState.stats.dailyStudyTimes = {};
+            if (!appState.stats.todaysPomodoroSessions) appState.stats.todaysPomodoroSessions = 0;
+            if (!appState.notes) appState.notes = [];
+            if (!appState.journalEntries) appState.journalEntries = [];
+            if (!appState.achievements) appState.achievements = { firstTask: false, fivePomodoros: false, weekStreak: false, perfectDay: false };
+            if (!appState.focusSound) appState.focusSound = { current: null, audio: null };
         }
 
         // Reset daily counters at start of new day
         function resetDailyCounters() {
             const today = getDateString();
-            const lastActiveDate = loadFromLocalStorage('lastActiveDate');
-            
-            if (lastActiveDate && lastActiveDate !== today) {
-                appState.stats.todaysPomodoroSessions = 0;
-                saveToLocalStorage('lastActiveDate', today);
-                saveData();
-            } else if (!lastActiveDate) {
-                saveToLocalStorage('lastActiveDate', today);
-            }
+            // In this demo version, we'll skip the localStorage check for daily reset
+            console.log('Daily counters checked for', today);
         }
 
-        // Enhanced init function
-        function init() {
-            loadData();
-            updateUI();
-            displayRandomQuote();
+        // Update UI function
+        function updateUI() {
+            updateTaskList();
+            updateTaskProgress();
+            updateHabitList();
+            updateTimerDisplay();
+            updatePomodoroDotsDisplay();
             updateStats();
-            updateWeeklyChart();
-            checkAchievements();
+            updateNotesDisplay();
+            updateJournalDisplay();
+            updateAchievementDisplay();
+            resetDailyCounters();
         }
 
         // Initialize app when page loads
         document.addEventListener('DOMContentLoaded', init);
-    </script>
-</body>
-</html>
