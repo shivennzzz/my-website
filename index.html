@@ -1,4 +1,122 @@
-<!DOCTYPE html>
+function updateUI() {
+            updateTaskList();
+            updateTaskProgress();
+            updateHabitList();
+            updateTimerDisplay();
+            updatePomodoroDotsDisplay();
+            updateStats();
+            updateNotesDisplay();
+            updateAchievementDisplay();
+            updateMoodDisplay();
+            resetDailyCounters();
+        }
+
+        // Notes functionality
+        function saveNote() {
+            const input = document.getElementById('notes-input');
+            const noteText = input.value.trim();
+            
+            if (noteText) {
+                const note = {
+                    id: Date.now(),
+                    text: noteText,
+                    createdAt: new Date()
+                };
+                appState.notes.unshift(note); // Add to beginning
+                input.value = '';
+                updateNotesDisplay();
+                saveData();
+                showCelebration("Note saved! 📝");
+            }
+        }
+
+        function deleteNote(noteId) {
+            appState.notes = appState.notes.filter(n => n.id !== noteId);
+            updateNotesDisplay();
+            saveData();
+        }
+
+        function clearNotes() {
+            if (appState.notes.length > 0 && confirm('Are you sure you want to clear all notes?')) {
+                appState.notes = [];
+                updateNotesDisplay();
+                saveData();
+            }
+        }
+
+        function updateNotesDisplay() {
+            const notesContainer = document.getElementById('saved-notes');
+            notesContainer.innerHTML = '';
+            
+            if (appState.notes.length === 0) {
+                notesContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary); font-size: 14px; padding: 20px;">No notes yet. Add your first note above! ✏️</div>';
+                return;
+            }
+            
+            appState.notes.slice(0, 3).forEach(note => { // Show only last 3 notes
+                const noteDiv = document.createElement('div');
+                noteDiv.style.cssText = `
+                    background: var(--bg-secondary);
+                    padding: 10px;
+                    border-radius: 8px;
+                    margin-bottom: 8px;
+                    font-size: 14px;
+                    position: relative;
+                `;
+                
+                const noteDate = new Date(note.createdAt).toLocaleDateString();
+                noteDiv.innerHTML = `
+                    <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 5px;">${noteDate}</div>
+                    <div style="margin-bottom: 10px;">${note.text}</div>
+                    <button onclick="deleteNote(${note.id})" style="
+                        position: absolute;
+                        top: 5px;
+                        right: 5px;
+                        background: var(--danger);
+                        color: white;
+                        border: none;
+                        border-radius: 4px;
+                        padding: 2px 6px;
+                        font-size: 10px;
+                        cursor: pointer;
+                    ">×</button>
+                `;
+                notesContainer.appendChild(noteDiv);
+            });
+            
+            if (appState.notes.length > 3) {
+                const moreDiv = document.createElement('div');
+                moreDiv.style.cssText = 'text-align: center; color: var(--text-secondary); font-size: 12px; padding: 10px;';
+                moreDiv.textContent = `+${appState.notes.length - 3} more notes`;
+                notesContainer.appendChild(moreDiv);
+            }
+        }
+
+        // Mood functionality
+        function setMood(mood) {
+            appState.currentMood = mood;
+            updateMoodDisplay();
+            saveData();
+            showCelebration(`Mood set to ${mood}! Have a great day! 😊`);
+        }
+
+        function updateMoodDisplay() {
+            const moodDisplay = document.getElementById('current-mood');
+            if (appState.currentMood) {
+                moodDisplay.textContent = `Today's mood: ${appState.currentMood}`;
+            } else {
+                moodDisplay.textContent = 'Set your mood for today!';
+            }
+        }
+
+        // Achievement system
+        function checkAchievements() {
+            const achievements = [
+                {
+                    key: 'firstTask',
+                    condition: () => appState.stats.completedTasks >= 1,
+                    badge: '🎯',
+                    title: 'First Steps<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -377,9 +495,18 @@
                     <h3>🎯 Daily Goals</h3>
                     <div class="task-input">
                         <input type="text" id="task-input" placeholder="Add a new goal..." onkeypress="handleTaskInput(event)">
+                        <select id="task-priority" style="padding: 12px; border: 2px solid var(--border); border-radius: 8px; background: var(--bg-primary); color: var(--text-primary); margin-right: 10px;">
+                            <option value="low">🟢 Low</option>
+                            <option value="medium">🟡 Medium</option>
+                            <option value="high">🔴 High</option>
+                        </select>
                         <button class="btn" onclick="addTask()">Add</button>
                     </div>
                     <ul class="task-list" id="task-list"></ul>
+                    <div style="margin-top: 15px; display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary);">
+                        <span>Completed: <span id="task-progress">0/0</span></span>
+                        <span>Today's Focus: <span id="daily-focus">0%</span></span>
+                    </div>
                 </div>
 
                 <!-- Study Timer -->
@@ -405,6 +532,47 @@
                                 Break (5min)
                             </label>
                         </div>
+                        <div style="margin-top: 15px; text-align: center;">
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 5px;">Today's Sessions</div>
+                            <div style="display: flex; justify-content: center; gap: 5px;" id="pomodoro-dots"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Notes -->
+                <div class="card">
+                    <h3>📝 Quick Notes</h3>
+                    <div style="margin-bottom: 15px;">
+                        <textarea id="notes-input" placeholder="Jot down your thoughts, ideas, or reminders..." 
+                                  style="width: 100%; min-height: 100px; padding: 12px; border: 2px solid var(--border); 
+                                         border-radius: 8px; background: var(--bg-primary); color: var(--text-primary); 
+                                         resize: vertical; font-family: inherit;"></textarea>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button class="btn" onclick="saveNote()" style="flex: 1;">💾 Save Note</button>
+                        <button class="btn btn-secondary" onclick="clearNotes()" style="flex: 1;">🗑️ Clear</button>
+                    </div>
+                    <div id="saved-notes" style="max-height: 200px; overflow-y: auto;"></div>
+                </div>
+
+                <!-- Weather Widget -->
+                <div class="card">
+                    <h3>🌤️ Weather & Mood</h3>
+                    <div id="weather-content" style="text-align: center;">
+                        <div style="font-size: 48px; margin: 10px 0;" id="weather-icon">☀️</div>
+                        <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px;" id="weather-temp">22°C</div>
+                        <div style="color: var(--text-secondary); margin-bottom: 20px;" id="weather-desc">Perfect for productivity!</div>
+                        <div style="margin-top: 20px;">
+                            <div style="font-size: 14px; margin-bottom: 10px; color: var(--text-secondary);">How are you feeling today?</div>
+                            <div style="display: flex; justify-content: space-around; gap: 5px;">
+                                <button onclick="setMood('😄')" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 5px; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">😄</button>
+                                <button onclick="setMood('😊')" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 5px; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">😊</button>
+                                <button onclick="setMood('😐')" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 5px; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">😐</button>
+                                <button onclick="setMood('😔')" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 5px; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">😔</button>
+                                <button onclick="setMood('💪')" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 5px; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">💪</button>
+                            </div>
+                            <div id="current-mood" style="margin-top: 10px; font-size: 14px; color: var(--text-secondary);"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -418,12 +586,51 @@
                     <div id="habit-list"></div>
                 </div>
 
+                <!-- Daily Achievement Badge -->
+                <div class="card">
+                    <h3>🏆 Today's Achievement</h3>
+                    <div style="text-align: center; padding: 20px;">
+                        <div id="achievement-badge" style="font-size: 64px; margin-bottom: 15px;">🎯</div>
+                        <div id="achievement-title" style="font-size: 18px; font-weight: bold; color: var(--primary); margin-bottom: 10px;">Getting Started</div>
+                        <div id="achievement-desc" style="font-size: 14px; color: var(--text-secondary); margin-bottom: 15px;">Complete your first task to unlock achievements!</div>
+                        <div class="progress-bar" style="margin: 15px 0;">
+                            <div class="progress-fill" id="achievement-progress" style="width: 0%;"></div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">
+                            <span id="achievement-current">0</span> / <span id="achievement-target">1</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Quote Widget -->
                 <div class="card">
                     <div class="quote-widget" id="quote-widget">
                         <div class="quote-text" id="quote-text">"The future depends on what you do today."</div>
                         <div class="quote-author" id="quote-author">- Mahatma Gandhi</div>
                         <button class="btn" onclick="newQuote()" style="margin-top: 15px; background: rgba(255,255,255,0.2);">New Quote</button>
+                    </div>
+                </div>
+
+                <!-- Focus Music Player -->
+                <div class="card">
+                    <h3>🎵 Focus Sounds</h3>
+                    <div style="text-align: center;">
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px;">
+                            <button onclick="playFocusSound('rain')" style="padding: 15px; background: var(--bg-secondary); border: 2px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
+                                🌧️<br><span style="font-size: 12px;">Rain</span>
+                            </button>
+                            <button onclick="playFocusSound('forest')" style="padding: 15px; background: var(--bg-secondary); border: 2px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
+                                🌲<br><span style="font-size: 12px;">Forest</span>
+                            </button>
+                            <button onclick="playFocusSound('ocean')" style="padding: 15px; background: var(--bg-secondary); border: 2px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
+                                🌊<br><span style="font-size: 12px;">Ocean</span>
+                            </button>
+                            <button onclick="playFocusSound('coffee')" style="padding: 15px; background: var(--bg-secondary); border: 2px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
+                                ☕<br><span style="font-size: 12px;">Café</span>
+                            </button>
+                        </div>
+                        <div id="current-sound" style="font-size: 14px; color: var(--text-secondary); margin-bottom: 10px;">No sound playing</div>
+                        <button class="btn btn-danger" onclick="stopFocusSound()" style="width: 100%;">⏹️ Stop Sound</button>
                     </div>
                 </div>
             </div>
@@ -669,9 +876,22 @@
                 completedTasks: 0,
                 bestStreak: 0,
                 pomodoroSessions: 0,
-                dailyStudyTimes: {} // Track daily study times
+                dailyStudyTimes: {},
+                todaysPomodoroSessions: 0
             },
-            darkMode: false
+            darkMode: false,
+            notes: [],
+            currentMood: null,
+            achievements: {
+                firstTask: false,
+                fivePomodoros: false,
+                weekStreak: false,
+                perfectDay: false
+            },
+            focusSound: {
+                current: null,
+                audio: null
+            }
         };
 
         // Motivational quotes
@@ -826,18 +1046,23 @@
         // Task management
         function addTask() {
             const input = document.getElementById('task-input');
+            const prioritySelect = document.getElementById('task-priority');
             const taskText = input.value.trim();
+            const priority = prioritySelect.value;
             
             if (taskText) {
                 const task = {
                     id: Date.now(),
                     text: taskText,
+                    priority: priority,
                     completed: false,
                     createdAt: new Date()
                 };
                 appState.tasks.push(task);
                 input.value = '';
+                prioritySelect.value = 'low';
                 updateTaskList();
+                updateTaskProgress();
                 saveData();
             }
         }
@@ -854,11 +1079,13 @@
                 task.completed = !task.completed;
                 if (task.completed) {
                     appState.stats.completedTasks++;
+                    checkAchievements();
                     showCelebration("Task completed! Keep up the great work! 🎯");
                 } else {
                     appState.stats.completedTasks--;
                 }
                 updateTaskList();
+                updateTaskProgress();
                 updateStats();
                 saveData();
             }
@@ -867,6 +1094,7 @@
         function deleteTask(taskId) {
             appState.tasks = appState.tasks.filter(t => t.id !== taskId);
             updateTaskList();
+            updateTaskProgress();
             saveData();
         }
 
@@ -874,18 +1102,43 @@
             const taskList = document.getElementById('task-list');
             taskList.innerHTML = '';
 
-            appState.tasks.forEach(task => {
+            // Sort tasks by priority (high, medium, low) then by completion status
+            const sortedTasks = [...appState.tasks].sort((a, b) => {
+                if (a.completed !== b.completed) {
+                    return a.completed - b.completed; // Incomplete tasks first
+                }
+                const priorityOrder = { high: 3, medium: 2, low: 1 };
+                return priorityOrder[b.priority] - priorityOrder[a.priority];
+            });
+
+            sortedTasks.forEach(task => {
                 const li = document.createElement('li');
                 li.className = `task-item ${task.completed ? 'completed' : ''}`;
+                
+                const priorityIcon = {
+                    high: '🔴',
+                    medium: '🟡', 
+                    low: '🟢'
+                };
+                
                 li.innerHTML = `
                     <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} 
                            onchange="toggleTask(${task.id})">
-                    <span>${task.text}</span>
+                    <span>${priorityIcon[task.priority]} ${task.text}</span>
                     <button class="btn btn-danger" style="margin-left: auto; padding: 5px 10px; font-size: 12px;" 
                             onclick="deleteTask(${task.id})">Delete</button>
                 `;
                 taskList.appendChild(li);
             });
+        }
+
+        function updateTaskProgress() {
+            const completedTasks = appState.tasks.filter(t => t.completed).length;
+            const totalTasks = appState.tasks.length;
+            const progressPercent = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+            
+            document.getElementById('task-progress').textContent = `${completedTasks}/${totalTasks}`;
+            document.getElementById('daily-focus').textContent = `${Math.round(progressPercent)}%`;
         }
 
         // Timer functionality
@@ -943,6 +1196,7 @@
             
             if (mode === 'pomodoro') {
                 appState.stats.pomodoroSessions++;
+                appState.stats.todaysPomodoroSessions++;
                 const studyTimeToAdd = 25 / 60; // 25 minutes in hours
                 appState.stats.studyTime += studyTimeToAdd;
                 
@@ -953,6 +1207,8 @@
                 }
                 appState.stats.dailyStudyTimes[today] += studyTimeToAdd;
                 
+                updatePomodoroDotsDisplay();
+                checkAchievements();
                 showCelebration("Pomodoro session complete! Time for a break! 🍅");
             } else {
                 showCelebration("Break time over! Ready for another productive session? ⚡");
@@ -960,6 +1216,30 @@
             
             updateStats();
             saveData();
+        }
+
+        function updatePomodoroDotsDisplay() {
+            const dotsContainer = document.getElementById('pomodoro-dots');
+            dotsContainer.innerHTML = '';
+            
+            for (let i = 0; i < Math.min(appState.stats.todaysPomodoroSessions, 10); i++) {
+                const dot = document.createElement('div');
+                dot.style.cssText = `
+                    width: 12px;
+                    height: 12px;
+                    border-radius: 50%;
+                    background: var(--secondary);
+                    display: inline-block;
+                `;
+                dotsContainer.appendChild(dot);
+            }
+            
+            if (appState.stats.todaysPomodoroSessions > 10) {
+                const moreText = document.createElement('span');
+                moreText.style.cssText = 'font-size: 12px; color: var(--text-secondary); margin-left: 5px;';
+                moreText.textContent = `+${appState.stats.todaysPomodoroSessions - 10}`;
+                dotsContainer.appendChild(moreText);
+            }
         }
 
         // Habit management
@@ -1097,11 +1377,18 @@
                     createdAt: new Date(habit.createdAt),
                     lastCompleted: habit.lastCompleted ? new Date(habit.lastCompleted) : null
                 }));
+
+                appState.notes = (appState.notes || []).map(note => ({
+                    ...note,
+                    createdAt: new Date(note.createdAt)
+                }));
                 
-                // Ensure dailyStudyTimes exists
-                if (!appState.stats.dailyStudyTimes) {
-                    appState.stats.dailyStudyTimes = {};
-                }
+                // Ensure all required properties exist
+                if (!appState.stats.dailyStudyTimes) appState.stats.dailyStudyTimes = {};
+                if (!appState.stats.todaysPomodoroSessions) appState.stats.todaysPomodoroSessions = 0;
+                if (!appState.notes) appState.notes = [];
+                if (!appState.achievements) appState.achievements = { firstTask: false, fivePomodoros: false, weekStreak: false, perfectDay: false };
+                if (!appState.focusSound) appState.focusSound = { current: null, audio: null };
                 
                 // Apply dark mode if saved
                 if (appState.darkMode) {
@@ -1111,11 +1398,179 @@
             }
         }
 
-        function updateUI() {
-            updateTaskList();
-            updateHabitList();
-            updateTimerDisplay();
+        // Achievement system
+        function checkAchievements() {
+            const achievements = [
+                {
+                    key: 'firstTask',
+                    condition: () => appState.stats.completedTasks >= 1,
+                    badge: '🎯',
+                    title: 'First Steps',
+                    desc: 'Complete your first task',
+                    target: 1
+                },
+                {
+                    key: 'fivePomodoros',
+                    condition: () => appState.stats.todaysPomodoroSessions >= 5,
+                    badge: '🍅',
+                    title: 'Pomodoro Master',
+                    desc: 'Complete 5 Pomodoro sessions in a day',
+                    target: 5
+                },
+                {
+                    key: 'weekStreak',
+                    condition: () => appState.stats.bestStreak >= 7,
+                    badge: '🔥',
+                    title: 'Week Warrior',
+                    desc: 'Maintain a 7-day habit streak',
+                    target: 7
+                },
+                {
+                    key: 'perfectDay',
+                    condition: () => {
+                        const completedTasks = appState.tasks.filter(t => t.completed).length;
+                        const totalTasks = appState.tasks.length;
+                        return totalTasks >= 3 && completedTasks === totalTasks && appState.stats.todaysPomodoroSessions >= 2;
+                    },
+                    badge: '⭐',
+                    title: 'Perfect Day',
+                    desc: 'Complete all tasks (3+) and 2+ Pomodoros',
+                    target: 1
+                }
+            ];
+
+            achievements.forEach(achievement => {
+                if (!appState.achievements[achievement.key] && achievement.condition()) {
+                    appState.achievements[achievement.key] = true;
+                    showCelebration(`🎉 Achievement Unlocked: ${achievement.title}! ${achievement.badge}`);
+                }
+            });
+
+            updateAchievementDisplay();
+        }
+
+        function updateAchievementDisplay() {
+            const unlockedAchievements = Object.keys(appState.achievements).filter(key => appState.achievements[key]);
+            const totalAchievements = Object.keys(appState.achievements).length;
+            
+            // Find current achievement to display
+            let currentAchievement = null;
+            let progress = 0;
+            
+            if (appState.stats.completedTasks === 0) {
+                currentAchievement = { badge: '🎯', title: 'Getting Started', desc: 'Complete your first task to unlock achievements!', current: 0, target: 1 };
+            } else if (!appState.achievements.firstTask) {
+                currentAchievement = { badge: '🎯', title: 'First Steps', desc: 'Complete your first task', current: Math.min(appState.stats.completedTasks, 1), target: 1 };
+                progress = (Math.min(appState.stats.completedTasks, 1) / 1) * 100;
+            } else if (!appState.achievements.fivePomodoros) {
+                currentAchievement = { badge: '🍅', title: 'Pomodoro Master', desc: 'Complete 5 Pomodoro sessions in a day', current: Math.min(appState.stats.todaysPomodoroSessions, 5), target: 5 };
+                progress = (Math.min(appState.stats.todaysPomodoroSessions, 5) / 5) * 100;
+            } else if (!appState.achievements.weekStreak) {
+                currentAchievement = { badge: '🔥', title: 'Week Warrior', desc: 'Maintain a 7-day habit streak', current: Math.min(appState.stats.bestStreak, 7), target: 7 };
+                progress = (Math.min(appState.stats.bestStreak, 7) / 7) * 100;
+            } else if (!appState.achievements.perfectDay) {
+                const completedTasks = appState.tasks.filter(t => t.completed).length;
+                const totalTasks = appState.tasks.length;
+                const tasksCondition = totalTasks >= 3 && completedTasks === totalTasks;
+                const pomodoroCondition = appState.stats.todaysPomodoroSessions >= 2;
+                
+                currentAchievement = { 
+                    badge: '⭐', 
+                    title: 'Perfect Day', 
+                    desc: 'Complete all tasks (3+) and 2+ Pomodoros', 
+                    current: (tasksCondition ? 1 : 0) + (pomodoroCondition ? 1 : 0), 
+                    target: 2 
+                };
+                progress = ((tasksCondition ? 1 : 0) + (pomodoroCondition ? 1 : 0)) / 2 * 100;
+            } else {
+                currentAchievement = { badge: '🏆', title: 'Achievement Master', desc: `Unlocked ${unlockedAchievements.length}/${totalAchievements} achievements!`, current: unlockedAchievements.length, target: totalAchievements };
+                progress = (unlockedAchievements.length / totalAchievements) * 100;
+            }
+            
+            document.getElementById('achievement-badge').textContent = currentAchievement.badge;
+            document.getElementById('achievement-title').textContent = currentAchievement.title;
+            document.getElementById('achievement-desc').textContent = currentAchievement.desc;
+            document.getElementById('achievement-progress').style.width = progress + '%';
+            document.getElementById('achievement-current').textContent = currentAchievement.current;
+            document.getElementById('achievement-target').textContent = currentAchievement.target;
+        }
+
+        // Focus sounds functionality
+        function playFocusSound(soundType) {
+            // Stop current sound if playing
+            if (appState.focusSound.audio) {
+                appState.focusSound.audio.pause();
+                appState.focusSound.audio = null;
+            }
+
+            // Sound descriptions and visual feedback
+            const sounds = {
+                rain: { name: '🌧️ Gentle Rain', description: 'Soft rainfall sounds' },
+                forest: { name: '🌲 Forest Ambience', description: 'Birds chirping and leaves rustling' },
+                ocean: { name: '🌊 Ocean Waves', description: 'Calming wave sounds' },
+                coffee: { name: '☕ Coffee Shop', description: 'Ambient café atmosphere' }
+            };
+
+            appState.focusSound.current = soundType;
+            
+            // Create a simple oscillator for demo purposes (since we can't load actual sound files)
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            // Different frequencies for different "sounds"
+            const frequencies = { rain: 200, forest: 400, ocean: 150, coffee: 300 };
+            oscillator.frequency.setValueAtTime(frequencies[soundType], audioContext.currentTime);
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start();
+            
+            // Store reference for stopping
+            appState.focusSound.audio = { stop: () => { oscillator.stop(); audioContext.close(); } };
+            
+            document.getElementById('current-sound').textContent = `Playing: ${sounds[soundType].name}`;
+            showCelebration(`🎵 Now playing ${sounds[soundType].description}`);
+            saveData();
+        }
+
+        function stopFocusSound() {
+            if (appState.focusSound.audio) {
+                appState.focusSound.audio.stop();
+                appState.focusSound.audio = null;
+                appState.focusSound.current = null;
+                document.getElementById('current-sound').textContent = 'No sound playing';
+                showCelebration('🔇 Focus sound stopped');
+                saveData();
+            }
+        }
+
+        // Reset daily counters at start of new day
+        function resetDailyCounters() {
+            const today = getDateString();
+            const lastActiveDate = loadFromLocalStorage('lastActiveDate');
+            
+            if (lastActiveDate && lastActiveDate !== today) {
+                appState.stats.todaysPomodoroSessions = 0;
+                saveToLocalStorage('lastActiveDate', today);
+                saveData();
+            } else if (!lastActiveDate) {
+                saveToLocalStorage('lastActiveDate', today);
+            }
+        }
+
+        // Enhanced init function
+        function init() {
+            loadData();
+            updateUI();
+            displayRandomQuote();
             updateStats();
+            updateWeeklyChart();
+            checkAchievements();
         }
 
         // Initialize app when page loads
