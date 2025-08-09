@@ -373,6 +373,35 @@
             color: var(--text-primary);
         }
 
+        .sound-button {
+            padding: 15px;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .sound-button:hover {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+        }
+
+        .sound-button.playing {
+            border-color: var(--secondary);
+            background: var(--secondary);
+            color: white;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
         @media (max-width: 768px) {
             .dashboard {
                 grid-template-columns: 1fr;
@@ -522,21 +551,27 @@
                     <h3>🎵 Focus Sounds</h3>
                     <div style="text-align: center;">
                         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px;">
-                            <button onclick="playFocusSound('rain')" style="padding: 15px; background: var(--bg-secondary); border: 2px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
-                                🌧️<br><span style="font-size: 12px;">Rain</span>
+                            <button class="sound-button" id="rain-btn" onclick="playFocusSound('rain')">
+                                🌧️<br><span>Gentle Rain</span>
                             </button>
-                            <button onclick="playFocusSound('forest')" style="padding: 15px; background: var(--bg-secondary); border: 2px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
-                                🌲<br><span style="font-size: 12px;">Forest</span>
+                            <button class="sound-button" id="forest-btn" onclick="playFocusSound('forest')">
+                                🌲<br><span>Forest Birds</span>
                             </button>
-                            <button onclick="playFocusSound('ocean')" style="padding: 15px; background: var(--bg-secondary); border: 2px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
-                                🌊<br><span style="font-size: 12px;">Ocean</span>
+                            <button class="sound-button" id="ocean-btn" onclick="playFocusSound('ocean')">
+                                🌊<br><span>Ocean Waves</span>
                             </button>
-                            <button onclick="playFocusSound('coffee')" style="padding: 15px; background: var(--bg-secondary); border: 2px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
-                                ☕<br><span style="font-size: 12px;">Café</span>
+                            <button class="sound-button" id="coffee-btn" onclick="playFocusSound('coffee')">
+                                ☕<br><span>Coffee Shop</span>
                             </button>
                         </div>
                         <div id="current-sound" style="font-size: 14px; color: var(--text-secondary); margin-bottom: 10px;">No sound playing</div>
                         <button class="btn btn-danger" onclick="stopFocusSound()" style="width: 100%;">⏹️ Stop Sound</button>
+                        <div style="margin-top: 10px;">
+                            <label style="font-size: 12px; color: var(--text-secondary);">
+                                Volume: 
+                                <input type="range" id="volume-slider" min="0" max="100" value="50" onchange="adjustVolume()" style="margin-left: 5px;">
+                            </label>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -658,7 +693,10 @@
             },
             focusSound: {
                 current: null,
-                audio: null
+                audioContext: null,
+                oscillator: null,
+                gainNode: null,
+                volume: 0.5
             }
         };
 
@@ -673,102 +711,6 @@
             { text: "Believe you can and you're halfway there.", author: "Theodore Roosevelt" },
             { text: "The only impossible journey is the one you never begin.", author: "Tony Robbins" }
         ];
-
-        // Get date string for tracking daily data
-        function getDateString(date = new Date()) {
-            return date.toISOString().split('T')[0];
-        }
-
-        // Get week dates for chart
-        function getWeekDates() {
-            const dates = [];
-            const today = new Date();
-            for (let i = 6; i >= 0; i--) {
-                const date = new Date(today);
-                date.setDate(date.getDate() - i);
-                dates.push(date);
-            }
-            return dates;
-        }
-
-        // Update weekly study chart
-        function updateWeeklyChart() {
-            const weekDates = getWeekDates();
-            const weeklyBars = document.getElementById('weekly-bars');
-            const weeklyData = document.getElementById('weekly-data');
-            
-            weeklyBars.innerHTML = '';
-            
-            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            let weeklyDataText = '';
-            let totalWeeklyTime = 0;
-            const maxTime = 5; // Max hours for scaling bars
-            
-            weekDates.forEach((date, index) => {
-                const dateString = getDateString(date);
-                const dayTime = appState.stats.dailyStudyTimes[dateString] || 0;
-                totalWeeklyTime += dayTime;
-                
-                const barHeight = maxTime > 0 ? (dayTime / maxTime) * 100 : 0;
-                const dayName = dayNames[date.getDay()];
-                
-                // Create bar
-                const bar = document.createElement('div');
-                bar.style.cssText = `
-                    width: 30px;
-                    height: ${Math.max(barHeight, 5)}%;
-                    background: linear-gradient(to top, var(--primary), var(--secondary));
-                    border-radius: 4px 4px 0 0;
-                    margin: 0 5px;
-                    position: relative;
-                `;
-                
-                const barContainer = document.createElement('div');
-                barContainer.style.cssText = `
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    height: 100%;
-                    justify-content: end;
-                `;
-                
-                const label = document.createElement('div');
-                label.style.cssText = `
-                    font-size: 12px;
-                    margin-top: 5px;
-                    color: var(--text-secondary);
-                `;
-                label.textContent = dayName;
-                
-                barContainer.appendChild(bar);
-                barContainer.appendChild(label);
-                weeklyBars.appendChild(barContainer);
-                
-                weeklyDataText += `${dayName}: ${dayTime.toFixed(1)}h${index < weekDates.length - 1 ? ' | ' : ''}`;
-            });
-            
-            weeklyData.innerHTML = weeklyDataText || 'No study data yet';
-            
-            const weeklyAverage = totalWeeklyTime / 7;
-            document.getElementById('weekly-average').textContent = `Weekly Average: ${weeklyAverage.toFixed(1)} hours/day`;
-            
-            // Show improvement or encouragement message
-            const improvementEl = document.getElementById('weekly-improvement');
-            if (totalWeeklyTime > 0) {
-                improvementEl.textContent = "Keep up the great work! 🎯";
-            } else {
-                improvementEl.textContent = "Start your first study session to see progress! 🚀";
-            }
-        }
-
-        // Initialize app
-        function init() {
-            loadData();
-            updateUI();
-            displayRandomQuote();
-            updateStats();
-            updateWeeklyChart();
-        }
 
         // Navigation
         function showPage(pageId) {
@@ -846,49 +788,6 @@
             saveData();
         }
 
-        function updateTaskList() {
-            const taskList = document.getElementById('task-list');
-            taskList.innerHTML = '';
-
-            // Sort tasks by priority (high, medium, low) then by completion status
-            const sortedTasks = [...appState.tasks].sort((a, b) => {
-                if (a.completed !== b.completed) {
-                    return a.completed - b.completed; // Incomplete tasks first
-                }
-                const priorityOrder = { high: 3, medium: 2, low: 1 };
-                return priorityOrder[b.priority] - priorityOrder[a.priority];
-            });
-
-            sortedTasks.forEach(task => {
-                const li = document.createElement('li');
-                li.className = `task-item ${task.completed ? 'completed' : ''}`;
-                
-                const priorityIcon = {
-                    high: '🔴',
-                    medium: '🟡', 
-                    low: '🟢'
-                };
-                
-                li.innerHTML = `
-                    <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} 
-                           onchange="toggleTask(${task.id})">
-                    <span>${priorityIcon[task.priority]} ${task.text}</span>
-                    <button class="btn btn-danger" style="margin-left: auto; padding: 5px 10px; font-size: 12px;" 
-                            onclick="deleteTask(${task.id})">Delete</button>
-                `;
-                taskList.appendChild(li);
-            });
-        }
-
-        function updateTaskProgress() {
-            const completedTasks = appState.tasks.filter(t => t.completed).length;
-            const totalTasks = appState.tasks.length;
-            const progressPercent = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-            
-            document.getElementById('task-progress').textContent = `${completedTasks}/${totalTasks}`;
-            document.getElementById('daily-focus').textContent = `${Math.round(progressPercent)}%`;
-        }
-
         // Timer functionality
         function startTimer() {
             if (!appState.timer.isRunning) {
@@ -913,83 +812,6 @@
             updateTimerDisplay();
         }
 
-        function updateTimer() {
-            if (appState.timer.seconds === 0) {
-                if (appState.timer.minutes === 0) {
-                    timerComplete();
-                    return;
-                }
-                appState.timer.minutes--;
-                appState.timer.seconds = 59;
-            } else {
-                appState.timer.seconds--;
-            }
-            updateTimerDisplay();
-        }
-
-        function updateTimerDisplay() {
-            const display = document.getElementById('timer-display');
-            const progress = document.getElementById('timer-progress');
-            
-            const totalSeconds = appState.timer.minutes * 60 + appState.timer.seconds;
-            const progressPercent = ((appState.timer.totalTime - totalSeconds) / appState.timer.totalTime) * 100;
-            
-            display.textContent = `${appState.timer.minutes.toString().padStart(2, '0')}:${appState.timer.seconds.toString().padStart(2, '0')}`;
-            progress.style.width = progressPercent + '%';
-        }
-
-        function timerComplete() {
-            pauseTimer();
-            const mode = document.querySelector('input[name="timer-mode"]:checked').value;
-            
-            if (mode === 'pomodoro') {
-                appState.stats.pomodoroSessions++;
-                appState.stats.todaysPomodoroSessions++;
-                const studyTimeToAdd = 25 / 60; // 25 minutes in hours
-                appState.stats.studyTime += studyTimeToAdd;
-                
-                // Add to daily study time
-                const today = getDateString();
-                if (!appState.stats.dailyStudyTimes[today]) {
-                    appState.stats.dailyStudyTimes[today] = 0;
-                }
-                appState.stats.dailyStudyTimes[today] += studyTimeToAdd;
-                
-                updatePomodoroDotsDisplay();
-                checkAchievements();
-                showCelebration("Pomodoro session complete! Time for a break! 🍅");
-            } else {
-                showCelebration("Break time over! Ready for another productive session? ⚡");
-            }
-            
-            updateStats();
-            saveData();
-        }
-
-        function updatePomodoroDotsDisplay() {
-            const dotsContainer = document.getElementById('pomodoro-dots');
-            dotsContainer.innerHTML = '';
-            
-            for (let i = 0; i < Math.min(appState.stats.todaysPomodoroSessions, 10); i++) {
-                const dot = document.createElement('div');
-                dot.style.cssText = `
-                    width: 12px;
-                    height: 12px;
-                    border-radius: 50%;
-                    background: var(--secondary);
-                    display: inline-block;
-                `;
-                dotsContainer.appendChild(dot);
-            }
-            
-            if (appState.stats.todaysPomodoroSessions > 10) {
-                const moreText = document.createElement('span');
-                moreText.style.cssText = 'font-size: 12px; color: var(--text-secondary); margin-left: 5px;';
-                moreText.textContent = `+${appState.stats.todaysPomodoroSessions - 10}`;
-                dotsContainer.appendChild(moreText);
-            }
-        }
-
         // Notes functionality
         function saveNote() {
             const input = document.getElementById('notes-input');
@@ -1001,7 +823,7 @@
                     text: noteText,
                     createdAt: new Date()
                 };
-                appState.notes.unshift(note); // Add to beginning
+                appState.notes.unshift(note);
                 input.value = '';
                 updateNotesDisplay();
                 saveData();
@@ -1023,54 +845,6 @@
             }
         }
 
-        function updateNotesDisplay() {
-            const notesContainer = document.getElementById('saved-notes');
-            notesContainer.innerHTML = '';
-            
-            if (appState.notes.length === 0) {
-                notesContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary); font-size: 14px; padding: 20px;">No notes yet. Add your first note above! ✏️</div>';
-                return;
-            }
-            
-            appState.notes.slice(0, 3).forEach(note => { // Show only last 3 notes
-                const noteDiv = document.createElement('div');
-                noteDiv.style.cssText = `
-                    background: var(--bg-secondary);
-                    padding: 10px;
-                    border-radius: 8px;
-                    margin-bottom: 8px;
-                    font-size: 14px;
-                    position: relative;
-                `;
-                
-                const noteDate = new Date(note.createdAt).toLocaleDateString();
-                noteDiv.innerHTML = `
-                    <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 5px;">${noteDate}</div>
-                    <div style="margin-bottom: 10px;">${note.text}</div>
-                    <button onclick="deleteNote(${note.id})" style="
-                        position: absolute;
-                        top: 5px;
-                        right: 5px;
-                        background: var(--danger);
-                        color: white;
-                        border: none;
-                        border-radius: 4px;
-                        padding: 2px 6px;
-                        font-size: 10px;
-                        cursor: pointer;
-                    ">×</button>
-                `;
-                notesContainer.appendChild(noteDiv);
-            });
-            
-            if (appState.notes.length > 3) {
-                const moreDiv = document.createElement('div');
-                moreDiv.style.cssText = 'text-align: center; color: var(--text-secondary); font-size: 12px; padding: 10px;';
-                moreDiv.textContent = `+${appState.notes.length - 3} more notes`;
-                notesContainer.appendChild(moreDiv);
-            }
-        }
-
         // Journal functionality
         function saveJournalEntry() {
             const input = document.getElementById('journal-input');
@@ -1082,7 +856,7 @@
                     text: entryText,
                     createdAt: new Date()
                 };
-                appState.journalEntries.unshift(entry); // Add to beginning
+                appState.journalEntries.unshift(entry);
                 input.value = '';
                 updateJournalDisplay();
                 saveData();
@@ -1101,49 +875,6 @@
                 appState.journalEntries = [];
                 updateJournalDisplay();
                 saveData();
-            }
-        }
-
-        function updateJournalDisplay() {
-            const journalContainer = document.getElementById('journal-entries');
-            journalContainer.innerHTML = '';
-            
-            if (appState.journalEntries.length === 0) {
-                journalContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary); font-size: 14px; padding: 20px;">No journal entries yet. Start reflecting on your day! 📖</div>';
-                return;
-            }
-            
-            appState.journalEntries.slice(0, 3).forEach(entry => { // Show only last 3 entries
-                const entryDiv = document.createElement('div');
-                entryDiv.className = 'journal-entry';
-                
-                const entryDate = new Date(entry.createdAt);
-                const dateString = entryDate.toLocaleDateString();
-                const timeString = entryDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                
-                entryDiv.innerHTML = `
-                    <div class="journal-entry-header">
-                        <div class="journal-entry-date">${dateString} at ${timeString}</div>
-                        <button onclick="deleteJournalEntry(${entry.id})" style="
-                            background: var(--danger);
-                            color: white;
-                            border: none;
-                            border-radius: 4px;
-                            padding: 2px 6px;
-                            font-size: 10px;
-                            cursor: pointer;
-                        ">×</button>
-                    </div>
-                    <div class="journal-entry-content">${entry.text}</div>
-                `;
-                journalContainer.appendChild(entryDiv);
-            });
-            
-            if (appState.journalEntries.length > 3) {
-                const moreDiv = document.createElement('div');
-                moreDiv.style.cssText = 'text-align: center; color: var(--text-secondary); font-size: 12px; padding: 10px;';
-                moreDiv.textContent = `+${appState.journalEntries.length - 3} more entries`;
-                journalContainer.appendChild(moreDiv);
             }
         }
 
@@ -1190,6 +921,7 @@
                     showCelebration(`Habit completed! ${habit.streak} day streak! 🔥`);
                     updateHabitList();
                     updateStats();
+                    checkAchievements();
                     saveData();
                 }
             }
@@ -1199,6 +931,401 @@
             appState.habits = appState.habits.filter(h => h.id !== habitId);
             updateHabitList();
             saveData();
+        }
+
+        // Quote system
+        function displayRandomQuote() {
+            const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+            document.getElementById('quote-text').textContent = `"${randomQuote.text}"`;
+            document.getElementById('quote-author').textContent = `- ${randomQuote.author}`;
+        }
+
+        function newQuote() {
+            displayRandomQuote();
+        }
+
+        // Focus sounds functionality
+        function playFocusSound(soundType) {
+            stopFocusSound();
+
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                let oscillator1, oscillator2, gainNode1, gainNode2;
+                
+                const soundProfiles = {
+                    rain: {
+                        freq1: 100 + Math.random() * 50,
+                        freq2: 150 + Math.random() * 50,
+                        type: 'sawtooth',
+                        name: '🌧️ Gentle Rain'
+                    },
+                    forest: {
+                        freq1: 800 + Math.random() * 400,
+                        freq2: 1200 + Math.random() * 400,
+                        type: 'sine',
+                        name: '🌲 Forest Birds'
+                    },
+                    ocean: {
+                        freq1: 60 + Math.random() * 40,
+                        freq2: 80 + Math.random() * 40,
+                        type: 'sawtooth',
+                        name: '🌊 Ocean Waves'
+                    },
+                    coffee: {
+                        freq1: 200 + Math.random() * 100,
+                        freq2: 300 + Math.random() * 100,
+                        type: 'square',
+                        name: '☕ Coffee Shop'
+                    }
+                };
+
+                const profile = soundProfiles[soundType];
+                
+                oscillator1 = audioContext.createOscillator();
+                oscillator2 = audioContext.createOscillator();
+                gainNode1 = audioContext.createGain();
+                gainNode2 = audioContext.createGain();
+                
+                oscillator1.frequency.setValueAtTime(profile.freq1, audioContext.currentTime);
+                oscillator2.frequency.setValueAtTime(profile.freq2, audioContext.currentTime);
+                oscillator1.type = profile.type;
+                oscillator2.type = profile.type;
+                
+                const volume = appState.focusSound.volume * 0.1;
+                gainNode1.gain.setValueAtTime(volume, audioContext.currentTime);
+                gainNode2.gain.setValueAtTime(volume * 0.7, audioContext.currentTime);
+                
+                const lfo = audioContext.createOscillator();
+                const lfoGain = audioContext.createGain();
+                lfo.frequency.setValueAtTime(0.5, audioContext.currentTime);
+                lfoGain.gain.setValueAtTime(10, audioContext.currentTime);
+                
+                lfo.connect(lfoGain);
+                lfoGain.connect(oscillator1.frequency);
+                
+                oscillator1.connect(gainNode1);
+                oscillator2.connect(gainNode2);
+                gainNode1.connect(audioContext.destination);
+                gainNode2.connect(audioContext.destination);
+                
+                oscillator1.start();
+                oscillator2.start();
+                lfo.start();
+                
+                appState.focusSound.current = soundType;
+                appState.focusSound.audioContext = audioContext;
+                appState.focusSound.oscillator = [oscillator1, oscillator2, lfo];
+                appState.focusSound.gainNode = [gainNode1, gainNode2];
+                
+                document.getElementById('current-sound').textContent = `Playing: ${profile.name}`;
+                document.querySelectorAll('.sound-button').forEach(btn => btn.classList.remove('playing'));
+                document.getElementById(soundType + '-btn').classList.add('playing');
+                
+                showCelebration(`🎵 Now playing ${profile.name}`);
+                
+            } catch (error) {
+                console.log('Audio not supported, showing visual feedback');
+                document.getElementById('current-sound').textContent = `Simulating: ${soundType}`;
+                document.querySelectorAll('.sound-button').forEach(btn => btn.classList.remove('playing'));
+                document.getElementById(soundType + '-btn').classList.add('playing');
+                showCelebration(`🎵 Focus mode activated`);
+            }
+            
+            saveData();
+        }
+
+        function stopFocusSound() {
+            if (appState.focusSound.oscillator) {
+                try {
+                    appState.focusSound.oscillator.forEach(osc => {
+                        if (osc) osc.stop();
+                    });
+                    if (appState.focusSound.audioContext) {
+                        appState.focusSound.audioContext.close();
+                    }
+                } catch (error) {
+                    console.log('Error stopping sound:', error);
+                }
+            }
+            
+            appState.focusSound.current = null;
+            appState.focusSound.audioContext = null;
+            appState.focusSound.oscillator = null;
+            appState.focusSound.gainNode = null;
+            
+            document.getElementById('current-sound').textContent = 'No sound playing';
+            document.querySelectorAll('.sound-button').forEach(btn => btn.classList.remove('playing'));
+            saveData();
+        }
+
+        function adjustVolume() {
+            const volume = document.getElementById('volume-slider').value / 100;
+            appState.focusSound.volume = volume;
+            
+            if (appState.focusSound.gainNode) {
+                const adjustedVolume = volume * 0.1;
+                appState.focusSound.gainNode.forEach((gain, index) => {
+                    if (gain) {
+                        gain.gain.setValueAtTime(adjustedVolume * (index === 0 ? 1 : 0.7), appState.focusSound.audioContext.currentTime);
+                    }
+                });
+            }
+            
+            saveData();
+        }
+
+        // Celebration modal
+        function showCelebration(message) {
+            document.getElementById('celebration-message').textContent = message;
+            document.getElementById('celebration-modal').classList.add('active');
+        }
+
+        function closeCelebration() {
+            document.getElementById('celebration-modal').classList.remove('active');
+        }
+
+        // Data persistence (using memory only)
+        function saveData() {
+            console.log('Data saved to memory');
+        }
+
+        function loadData() {
+            console.log('Data loaded from memory');
+            
+            if (!appState.stats.dailyStudyTimes) appState.stats.dailyStudyTimes = {};
+            if (!appState.stats.todaysPomodoroSessions) appState.stats.todaysPomodoroSessions = 0;
+            if (!appState.notes) appState.notes = [];
+            if (!appState.journalEntries) appState.journalEntries = [];
+            if (!appState.achievements) appState.achievements = { firstTask: false, fivePomodoros: false, weekStreak: false, perfectDay: false };
+            if (!appState.focusSound) appState.focusSound = { current: null, audioContext: null, oscillator: null, gainNode: null, volume: 0.5 };
+        }
+
+        // Utility functions
+        function getDateString(date = new Date()) {
+            return date.toISOString().split('T')[0];
+        }
+
+        function getWeekDates() {
+            const dates = [];
+            const today = new Date();
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                dates.push(date);
+            }
+            return dates;
+        }
+
+        // Update functions
+        function updateTaskList() {
+            const taskList = document.getElementById('task-list');
+            taskList.innerHTML = '';
+
+            const sortedTasks = [...appState.tasks].sort((a, b) => {
+                if (a.completed !== b.completed) {
+                    return a.completed - b.completed;
+                }
+                const priorityOrder = { high: 3, medium: 2, low: 1 };
+                return priorityOrder[b.priority] - priorityOrder[a.priority];
+            });
+
+            sortedTasks.forEach(task => {
+                const li = document.createElement('li');
+                li.className = `task-item ${task.completed ? 'completed' : ''}`;
+                
+                const priorityIcon = {
+                    high: '🔴',
+                    medium: '🟡', 
+                    low: '🟢'
+                };
+                
+                li.innerHTML = `
+                    <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} 
+                           onchange="toggleTask(${task.id})">
+                    <span>${priorityIcon[task.priority]} ${task.text}</span>
+                    <button class="btn btn-danger" style="margin-left: auto; padding: 5px 10px; font-size: 12px;" 
+                            onclick="deleteTask(${task.id})">Delete</button>
+                `;
+                taskList.appendChild(li);
+            });
+        }
+
+        function updateTaskProgress() {
+            const completedTasks = appState.tasks.filter(t => t.completed).length;
+            const totalTasks = appState.tasks.length;
+            const progressPercent = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+            
+            document.getElementById('task-progress').textContent = `${completedTasks}/${totalTasks}`;
+            document.getElementById('daily-focus').textContent = `${Math.round(progressPercent)}%`;
+        }
+
+        function updateTimer() {
+            if (appState.timer.seconds === 0) {
+                if (appState.timer.minutes === 0) {
+                    timerComplete();
+                    return;
+                }
+                appState.timer.minutes--;
+                appState.timer.seconds = 59;
+            } else {
+                appState.timer.seconds--;
+            }
+            updateTimerDisplay();
+        }
+
+        function updateTimerDisplay() {
+            const display = document.getElementById('timer-display');
+            const progress = document.getElementById('timer-progress');
+            
+            const totalSeconds = appState.timer.minutes * 60 + appState.timer.seconds;
+            const progressPercent = ((appState.timer.totalTime - totalSeconds) / appState.timer.totalTime) * 100;
+            
+            display.textContent = `${appState.timer.minutes.toString().padStart(2, '0')}:${appState.timer.seconds.toString().padStart(2, '0')}`;
+            progress.style.width = progressPercent + '%';
+        }
+
+        function timerComplete() {
+            pauseTimer();
+            const mode = document.querySelector('input[name="timer-mode"]:checked').value;
+            
+            if (mode === 'pomodoro') {
+                appState.stats.pomodoroSessions++;
+                appState.stats.todaysPomodoroSessions++;
+                const studyTimeToAdd = 25 / 60;
+                appState.stats.studyTime += studyTimeToAdd;
+                
+                const today = getDateString();
+                if (!appState.stats.dailyStudyTimes[today]) {
+                    appState.stats.dailyStudyTimes[today] = 0;
+                }
+                appState.stats.dailyStudyTimes[today] += studyTimeToAdd;
+                
+                updatePomodoroDotsDisplay();
+                checkAchievements();
+                showCelebration("Pomodoro session complete! Time for a break! 🍅");
+            } else {
+                showCelebration("Break time over! Ready for another productive session? ⚡");
+            }
+            
+            updateStats();
+            saveData();
+        }
+
+        function updatePomodoroDotsDisplay() {
+            const dotsContainer = document.getElementById('pomodoro-dots');
+            dotsContainer.innerHTML = '';
+            
+            for (let i = 0; i < Math.min(appState.stats.todaysPomodoroSessions, 10); i++) {
+                const dot = document.createElement('div');
+                dot.style.cssText = `
+                    width: 12px;
+                    height: 12px;
+                    border-radius: 50%;
+                    background: var(--secondary);
+                    display: inline-block;
+                    margin-right: 3px;
+                `;
+                dotsContainer.appendChild(dot);
+            }
+            
+            if (appState.stats.todaysPomodoroSessions > 10) {
+                const moreText = document.createElement('span');
+                moreText.style.cssText = 'font-size: 12px; color: var(--text-secondary); margin-left: 5px;';
+                moreText.textContent = `+${appState.stats.todaysPomodoroSessions - 10}`;
+                dotsContainer.appendChild(moreText);
+            }
+        }
+
+        function updateNotesDisplay() {
+            const notesContainer = document.getElementById('saved-notes');
+            notesContainer.innerHTML = '';
+            
+            if (appState.notes.length === 0) {
+                notesContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary); font-size: 14px; padding: 20px;">No notes yet. Add your first note above! ✏️</div>';
+                return;
+            }
+            
+            appState.notes.slice(0, 3).forEach(note => {
+                const noteDiv = document.createElement('div');
+                noteDiv.style.cssText = `
+                    background: var(--bg-secondary);
+                    padding: 10px;
+                    border-radius: 8px;
+                    margin-bottom: 8px;
+                    font-size: 14px;
+                    position: relative;
+                `;
+                
+                const noteDate = new Date(note.createdAt).toLocaleDateString();
+                noteDiv.innerHTML = `
+                    <div style="color: var(--text-secondary); font-size: 11px; margin-bottom: 5px;">${noteDate}</div>
+                    <div style="margin-bottom: 10px;">${note.text}</div>
+                    <button onclick="deleteNote(${note.id})" style="
+                        position: absolute;
+                        top: 5px;
+                        right: 5px;
+                        background: var(--danger);
+                        color: white;
+                        border: none;
+                        border-radius: 4px;
+                        padding: 2px 6px;
+                        font-size: 10px;
+                        cursor: pointer;
+                    ">×</button>
+                `;
+                notesContainer.appendChild(noteDiv);
+            });
+            
+            if (appState.notes.length > 3) {
+                const moreDiv = document.createElement('div');
+                moreDiv.style.cssText = 'text-align: center; color: var(--text-secondary); font-size: 12px; padding: 10px;';
+                moreDiv.textContent = `+${appState.notes.length - 3} more notes`;
+                notesContainer.appendChild(moreDiv);
+            }
+        }
+
+        function updateJournalDisplay() {
+            const journalContainer = document.getElementById('journal-entries');
+            journalContainer.innerHTML = '';
+            
+            if (appState.journalEntries.length === 0) {
+                journalContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary); font-size: 14px; padding: 20px;">No journal entries yet. Start reflecting on your day! 📖</div>';
+                return;
+            }
+            
+            appState.journalEntries.slice(0, 3).forEach(entry => {
+                const entryDiv = document.createElement('div');
+                entryDiv.className = 'journal-entry';
+                
+                const entryDate = new Date(entry.createdAt);
+                const dateString = entryDate.toLocaleDateString();
+                const timeString = entryDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                entryDiv.innerHTML = `
+                    <div class="journal-entry-header">
+                        <div class="journal-entry-date">${dateString} at ${timeString}</div>
+                        <button onclick="deleteJournalEntry(${entry.id})" style="
+                            background: var(--danger);
+                            color: white;
+                            border: none;
+                            border-radius: 4px;
+                            padding: 2px 6px;
+                            font-size: 10px;
+                            cursor: pointer;
+                        ">×</button>
+                    </div>
+                    <div class="journal-entry-content">${entry.text}</div>
+                `;
+                journalContainer.appendChild(entryDiv);
+            });
+            
+            if (appState.journalEntries.length > 3) {
+                const moreDiv = document.createElement('div');
+                moreDiv.style.cssText = 'text-align: center; color: var(--text-secondary); font-size: 12px; padding: 10px;';
+                moreDiv.textContent = `+${appState.journalEntries.length - 3} more entries`;
+                journalContainer.appendChild(moreDiv);
+            }
         }
 
         function updateHabitList() {
@@ -1228,18 +1355,6 @@
             });
         }
 
-        // Quote system
-        function displayRandomQuote() {
-            const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-            document.getElementById('quote-text').textContent = `"${randomQuote.text}"`;
-            document.getElementById('quote-author').textContent = `- ${randomQuote.author}`;
-        }
-
-        function newQuote() {
-            displayRandomQuote();
-        }
-
-        // Statistics
         function updateStats() {
             document.getElementById('total-study-time').textContent = appState.stats.studyTime.toFixed(1);
             document.getElementById('completed-tasks').textContent = appState.stats.completedTasks;
@@ -1251,7 +1366,73 @@
             document.getElementById('productivity-score').textContent = productivityScore + '%';
         }
 
-        // Achievement system
+        function updateWeeklyChart() {
+            const weekDates = getWeekDates();
+            const weeklyBars = document.getElementById('weekly-bars');
+            const weeklyData = document.getElementById('weekly-data');
+            
+            weeklyBars.innerHTML = '';
+            
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            let weeklyDataText = '';
+            let totalWeeklyTime = 0;
+            const maxTime = 5;
+            
+            weekDates.forEach((date, index) => {
+                const dateString = getDateString(date);
+                const dayTime = appState.stats.dailyStudyTimes[dateString] || 0;
+                totalWeeklyTime += dayTime;
+                
+                const barHeight = maxTime > 0 ? (dayTime / maxTime) * 100 : 0;
+                const dayName = dayNames[date.getDay()];
+                
+                const bar = document.createElement('div');
+                bar.style.cssText = `
+                    width: 30px;
+                    height: ${Math.max(barHeight, 5)}%;
+                    background: linear-gradient(to top, var(--primary), var(--secondary));
+                    border-radius: 4px 4px 0 0;
+                    margin: 0 5px;
+                    position: relative;
+                `;
+                
+                const barContainer = document.createElement('div');
+                barContainer.style.cssText = `
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    height: 100%;
+                    justify-content: end;
+                `;
+                
+                const label = document.createElement('div');
+                label.style.cssText = `
+                    font-size: 12px;
+                    margin-top: 5px;
+                    color: var(--text-secondary);
+                `;
+                label.textContent = dayName;
+                
+                barContainer.appendChild(bar);
+                barContainer.appendChild(label);
+                weeklyBars.appendChild(barContainer);
+                
+                weeklyDataText += `${dayName}: ${dayTime.toFixed(1)}h${index < weekDates.length - 1 ? ' | ' : ''}`;
+            });
+            
+            weeklyData.innerHTML = weeklyDataText || 'No study data yet';
+            
+            const weeklyAverage = totalWeeklyTime / 7;
+            document.getElementById('weekly-average').textContent = `Weekly Average: ${weeklyAverage.toFixed(1)} hours/day`;
+            
+            const improvementEl = document.getElementById('weekly-improvement');
+            if (totalWeeklyTime > 0) {
+                improvementEl.textContent = "Keep up the great work! 🎯";
+            } else {
+                improvementEl.textContent = "Start your first study session to see progress! 🚀";
+            }
+        }
+
         function checkAchievements() {
             const achievements = [
                 {
@@ -1306,7 +1487,6 @@
             const unlockedAchievements = Object.keys(appState.achievements).filter(key => appState.achievements[key]);
             const totalAchievements = Object.keys(appState.achievements).length;
             
-            // Find current achievement to display
             let currentAchievement = null;
             let progress = 0;
             
@@ -1348,105 +1528,11 @@
             document.getElementById('achievement-target').textContent = currentAchievement.target;
         }
 
-        // Focus sounds functionality
-        function playFocusSound(soundType) {
-            // Stop current sound if playing
-            if (appState.focusSound.audio) {
-                appState.focusSound.audio.pause();
-                appState.focusSound.audio = null;
-            }
-
-            // Sound descriptions and visual feedback
-            const sounds = {
-                rain: { name: '🌧️ Gentle Rain', description: 'Soft rainfall sounds' },
-                forest: { name: '🌲 Forest Ambience', description: 'Birds chirping and leaves rustling' },
-                ocean: { name: '🌊 Ocean Waves', description: 'Calming wave sounds' },
-                coffee: { name: '☕ Coffee Shop', description: 'Ambient café atmosphere' }
-            };
-
-            appState.focusSound.current = soundType;
-            
-            // Create a simple oscillator for demo purposes (since we can't load actual sound files)
-            try {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                
-                // Different frequencies for different "sounds"
-                const frequencies = { rain: 200, forest: 400, ocean: 150, coffee: 300 };
-                oscillator.frequency.setValueAtTime(frequencies[soundType], audioContext.currentTime);
-                oscillator.type = 'sine';
-                
-                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                
-                oscillator.start();
-                
-                // Store reference for stopping
-                appState.focusSound.audio = { stop: () => { oscillator.stop(); audioContext.close(); } };
-                
-                document.getElementById('current-sound').textContent = `Playing: ${sounds[soundType].name}`;
-                showCelebration(`🎵 Now playing ${sounds[soundType].description}`);
-            } catch (error) {
-                document.getElementById('current-sound').textContent = `Simulating: ${sounds[soundType].name}`;
-                showCelebration(`🎵 Focus sound activated: ${sounds[soundType].description}`);
-            }
-            
-            saveData();
-        }
-
-        function stopFocusSound() {
-            if (appState.focusSound.audio) {
-                appState.focusSound.audio.stop();
-                appState.focusSound.audio = null;
-            }
-            appState.focusSound.current = null;
-            document.getElementById('current-sound').textContent = 'No sound playing';
-            showCelebration('🔇 Focus sound stopped');
-            saveData();
-        }
-
-        // Celebration modal
-        function showCelebration(message) {
-            document.getElementById('celebration-message').textContent = message;
-            document.getElementById('celebration-modal').classList.add('active');
-        }
-
-        function closeCelebration() {
-            document.getElementById('celebration-modal').classList.remove('active');
-        }
-
-        // Data persistence using in-memory storage
-        function saveData() {
-            // In a real application, this would save to localStorage
-            // For this artifact, we'll just keep data in memory during the session
-            console.log('Data saved to memory');
-        }
-
-        function loadData() {
-            // In a real application, this would load from localStorage
-            // For this artifact, data is initialized in the appState object
-            console.log('Data loaded from memory');
-            
-            // Ensure all required properties exist
-            if (!appState.stats.dailyStudyTimes) appState.stats.dailyStudyTimes = {};
-            if (!appState.stats.todaysPomodoroSessions) appState.stats.todaysPomodoroSessions = 0;
-            if (!appState.notes) appState.notes = [];
-            if (!appState.journalEntries) appState.journalEntries = [];
-            if (!appState.achievements) appState.achievements = { firstTask: false, fivePomodoros: false, weekStreak: false, perfectDay: false };
-            if (!appState.focusSound) appState.focusSound = { current: null, audio: null };
-        }
-
-        // Reset daily counters at start of new day
         function resetDailyCounters() {
             const today = getDateString();
-            // In this demo version, we'll skip the localStorage check for daily reset
             console.log('Daily counters checked for', today);
         }
 
-        // Update UI function
         function updateUI() {
             updateTaskList();
             updateTaskProgress();
@@ -1460,5 +1546,16 @@
             resetDailyCounters();
         }
 
+        function init() {
+            loadData();
+            updateUI();
+            displayRandomQuote();
+            updateStats();
+            updateWeeklyChart();
+        }
+
         // Initialize app when page loads
         document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
