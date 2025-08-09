@@ -429,6 +429,45 @@
             </div>
         </div>
 
+        <div id="stats-page" class="page">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-study-time">0</div>
+                    <div class="stat-label">Hours Studied Today</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="completed-tasks">0</div>
+                    <div class="stat-label">Tasks Completed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="habit-streak">0</div>
+                    <div class="stat-label">Best Habit Streak</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="productivity-score">0%</div>
+                    <div class="stat-label">Productivity Score</div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <div style="text-align: center; color: var(--text-secondary);">
+                    <h3>📈 Study Time This Week</h3>
+                    <div id="weekly-study-chart" style="margin-top: 20px; font-size: 14px;">
+                        <div id="weekly-bars" style="display: flex; justify-content: space-around; align-items: end; height: 150px; margin: 20px 0;">
+                            <!-- Weekly bars will be generated here -->
+                        </div>
+                        <div id="weekly-data">
+                            <!-- Weekly data will be shown here -->
+                        </div>
+                    </div>
+                    <div style="margin-top: 20px; padding: 20px; background: var(--bg-secondary); border-radius: 8px;">
+                        <strong id="weekly-average">Weekly Average: 0.0 hours/day</strong><br>
+                        <span id="weekly-improvement" style="color: var(--secondary);"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="about-page" class="page">
             <div class="card" style="max-width: 800px; margin: 0 auto;">
                 <h2 style="text-align: center; color: var(--primary); margin-bottom: 30px; font-size: 28px;">
@@ -600,38 +639,6 @@
                 </div>
             </div>
         </div>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-number" id="total-study-time">0</div>
-                    <div class="stat-label">Hours Studied Today</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="completed-tasks">0</div>
-                    <div class="stat-label">Tasks Completed</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="habit-streak">0</div>
-                    <div class="stat-label">Best Habit Streak</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="productivity-score">0%</div>
-                    <div class="stat-label">Productivity Score</div>
-                </div>
-            </div>
-            
-            <div class="chart-container">
-                <div style="text-align: center; color: var(--text-secondary);">
-                    <h3>📈 Study Time This Week</h3>
-                    <div style="margin-top: 20px; font-size: 14px;">
-                        Mon: 2.5h | Tue: 3.2h | Wed: 1.8h | Thu: 4.1h | Fri: 2.7h | Sat: 1.5h | Sun: 3.0h
-                    </div>
-                    <div style="margin-top: 20px; padding: 20px; background: var(--bg-secondary); border-radius: 8px;">
-                        <strong>Weekly Average: 2.7 hours/day</strong><br>
-                        <span style="color: var(--secondary);">↗ 15% improvement from last week</span>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Celebration Modal -->
@@ -661,7 +668,8 @@
                 studyTime: 0,
                 completedTasks: 0,
                 bestStreak: 0,
-                pomodoroSessions: 0
+                pomodoroSessions: 0,
+                dailyStudyTimes: {} // Track daily study times
             },
             darkMode: false
         };
@@ -678,12 +686,120 @@
             { text: "The only impossible journey is the one you never begin.", author: "Tony Robbins" }
         ];
 
+        // Utility functions for localStorage
+        function saveToLocalStorage(key, data) {
+            try {
+                localStorage.setItem(key, JSON.stringify(data));
+            } catch (error) {
+                console.error('Error saving to localStorage:', error);
+            }
+        }
+
+        function loadFromLocalStorage(key) {
+            try {
+                const data = localStorage.getItem(key);
+                return data ? JSON.parse(data) : null;
+            } catch (error) {
+                console.error('Error loading from localStorage:', error);
+                return null;
+            }
+        }
+
+        // Get date string for tracking daily data
+        function getDateString(date = new Date()) {
+            return date.toISOString().split('T')[0];
+        }
+
+        // Get week dates for chart
+        function getWeekDates() {
+            const dates = [];
+            const today = new Date();
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                dates.push(date);
+            }
+            return dates;
+        }
+
+        // Update weekly study chart
+        function updateWeeklyChart() {
+            const weekDates = getWeekDates();
+            const weeklyBars = document.getElementById('weekly-bars');
+            const weeklyData = document.getElementById('weekly-data');
+            
+            weeklyBars.innerHTML = '';
+            
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            let weeklyDataText = '';
+            let totalWeeklyTime = 0;
+            const maxTime = 5; // Max hours for scaling bars
+            
+            weekDates.forEach((date, index) => {
+                const dateString = getDateString(date);
+                const dayTime = appState.stats.dailyStudyTimes[dateString] || 0;
+                totalWeeklyTime += dayTime;
+                
+                const barHeight = maxTime > 0 ? (dayTime / maxTime) * 100 : 0;
+                const dayName = dayNames[date.getDay()];
+                
+                // Create bar
+                const bar = document.createElement('div');
+                bar.style.cssText = `
+                    width: 30px;
+                    height: ${barHeight}%;
+                    background: linear-gradient(to top, var(--primary), var(--secondary));
+                    border-radius: 4px 4px 0 0;
+                    margin: 0 5px;
+                    position: relative;
+                    min-height: 5px;
+                `;
+                
+                const barContainer = document.createElement('div');
+                barContainer.style.cssText = `
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    height: 100%;
+                    justify-content: end;
+                `;
+                
+                const label = document.createElement('div');
+                label.style.cssText = `
+                    font-size: 12px;
+                    margin-top: 5px;
+                    color: var(--text-secondary);
+                `;
+                label.textContent = dayName;
+                
+                barContainer.appendChild(bar);
+                barContainer.appendChild(label);
+                weeklyBars.appendChild(barContainer);
+                
+                weeklyDataText += `${dayName}: ${dayTime.toFixed(1)}h${index < weekDates.length - 1 ? ' | ' : ''}`;
+            });
+            
+            weeklyData.innerHTML = weeklyDataText || 'No study data yet';
+            
+            const weeklyAverage = totalWeeklyTime / 7;
+            document.getElementById('weekly-average').textContent = `Weekly Average: ${weeklyAverage.toFixed(1)} hours/day`;
+            
+            // Show improvement or encouragement message
+            const improvementEl = document.getElementById('weekly-improvement');
+            if (totalWeeklyTime > 0) {
+                improvementEl.textContent = "Keep up the great work! 🎯";
+            } else {
+                improvementEl.textContent = "Start your first study session to see progress! 🚀";
+            }
+        }
+
         // Initialize app
         function init() {
             loadData();
             updateUI();
             displayRandomQuote();
             updateStats();
+            updateWeeklyChart();
         }
 
         // Navigation
@@ -693,6 +809,10 @@
             
             document.getElementById(pageId + '-page').classList.add('active');
             event.target.classList.add('active');
+            
+            if (pageId === 'stats') {
+                updateWeeklyChart();
+            }
         }
 
         // Dark mode toggle
@@ -823,7 +943,16 @@
             
             if (mode === 'pomodoro') {
                 appState.stats.pomodoroSessions++;
-                appState.stats.studyTime += 0.42; // 25 minutes in hours
+                const studyTimeToAdd = 25 / 60; // 25 minutes in hours
+                appState.stats.studyTime += studyTimeToAdd;
+                
+                // Add to daily study time
+                const today = getDateString();
+                if (!appState.stats.dailyStudyTimes[today]) {
+                    appState.stats.dailyStudyTimes[today] = 0;
+                }
+                appState.stats.dailyStudyTimes[today] += studyTimeToAdd;
+                
                 showCelebration("Pomodoro session complete! Time for a break! 🍅");
             } else {
                 showCelebration("Break time over! Ready for another productive session? ⚡");
@@ -949,13 +1078,37 @@
 
         // Data persistence
         function saveData() {
-            // In a real app, this would save to a backend or localStorage
-            // For this demo, we'll just keep data in memory
+            saveToLocalStorage('productivityDashboard', appState);
         }
 
         function loadData() {
-            // In a real app, this would load from a backend or localStorage
-            // For this demo, we'll start with empty state
+            const savedData = loadFromLocalStorage('productivityDashboard');
+            if (savedData) {
+                appState = { ...appState, ...savedData };
+                
+                // Convert date strings back to Date objects where necessary
+                appState.tasks = appState.tasks.map(task => ({
+                    ...task,
+                    createdAt: new Date(task.createdAt)
+                }));
+                
+                appState.habits = appState.habits.map(habit => ({
+                    ...habit,
+                    createdAt: new Date(habit.createdAt),
+                    lastCompleted: habit.lastCompleted ? new Date(habit.lastCompleted) : null
+                }));
+                
+                // Ensure dailyStudyTimes exists
+                if (!appState.stats.dailyStudyTimes) {
+                    appState.stats.dailyStudyTimes = {};
+                }
+                
+                // Apply dark mode if saved
+                if (appState.darkMode) {
+                    document.body.setAttribute('data-theme', 'dark');
+                    document.querySelector('.dark-toggle').textContent = '☀️';
+                }
+            }
         }
 
         function updateUI() {
